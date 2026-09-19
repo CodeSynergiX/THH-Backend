@@ -1,11 +1,12 @@
 @import 'tailwindcss';
 
 @source '../views';
+@source '../js';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Outfit', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 
@@ -26,4 +27,134 @@
     --color-thh-status-resolved: var(--color-status-resolved);
     --color-thh-status-rejected: var(--color-status-rejected);
     --color-thh-status-onhold: var(--color-status-onhold);
+
+    /* Animation durations */
+    --animate-fade-in: fade-in 0.35s ease-out both;
+    --animate-slide-down: slide-down 0.3s ease-out both;
+    --animate-slide-in-left: slide-in-left 0.35s ease-out both;
+    --animate-count-up: count-up 0.6s ease-out both;
+    --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
 }
+
+/* ============================================================
+   Custom Keyframe Animations
+   ============================================================ */
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes count-up {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse-glow {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(180, 83, 9, 0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -400px 0;
+    }
+    100% {
+        background-position: 400px 0;
+    }
+}
+
+/* ============================================================
+   Utility Animations (used via className)
+   ============================================================ */
+.animate-fade-in {
+    animation: var(--animate-fade-in);
+}
+.animate-slide-down {
+    animation: var(--animate-slide-down);
+}
+.animate-slide-in-left {
+    animation: var(--animate-slide-in-left);
+}
+.animate-count-up {
+    animation: var(--animate-count-up);
+}
+.animate-pulse-glow {
+    animation: var(--animate-pulse-glow);
+}
+
+/* Staggered children animation */
+.stagger-children > *:nth-child(1) {
+    animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+    animation-delay: 60ms;
+}
+.stagger-children > *:nth-child(3) {
+    animation-delay: 120ms;
+}
+.stagger-children > *:nth-child(4) {
+    animation-delay: 180ms;
+}
+.stagger-children > *:nth-child(5) {
+    animation-delay: 240ms;
+}
+.stagger-children > *:nth-child(6) {
+    animation-delay: 300ms;
+}
+
+/* Shimmer skeleton */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* ============================================================
+   NGO Tribal Pattern Decorations
+   ============================================================ */
+.tribal-pattern-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23B45309' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');

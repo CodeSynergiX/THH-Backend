@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ContentModuleController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LocalizationController;
 use App\Http\Controllers\Admin\PeopleController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ThemeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PortalController;
@@ -60,4 +61,12 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::get('/localization/scan-missing', [LocalizationController::class, 'scanMissing'])->name('localization.scan-missing');
     Route::get('/localization/export/json/{locale}', [LocalizationController::class, 'exportJson'])->name('localization.export.json');
     Route::get('/localization/export/csv', [LocalizationController::class, 'exportCsv'])->name('localization.export.csv');
+
+    // Settings (General, SMTP, Notifications)
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/general', [SettingsController::class, 'updateGeneral'])->name('settings.general');
+    Route::post('/settings/smtp', [SettingsController::class, 'updateSmtp'])->name('settings.smtp');
+    Route::post('/settings/test-email', [SettingsController::class, 'testEmail'])->name('settings.test-email');
+    Route::post('/settings/notifications', [SettingsController::class, 'updateNotifications'])->name('settings.notifications');
+    Route::post('/settings/notification-template/{id}/toggle', [SettingsController::class, 'toggleTemplate'])->name('settings.template.toggle');
 });

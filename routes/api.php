@@ -99,5 +99,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
         Route::post('/notifications/receipt', [NotificationController::class, 'receipt']);
+
+        // Notification Preferences (per-user channel + event toggles)
+        Route::get('/notification-preferences', [NotificationController::class, 'preferences']);
+        Route::put('/notification-preferences', [NotificationController::class, 'updatePreferences']);
     });
 });
