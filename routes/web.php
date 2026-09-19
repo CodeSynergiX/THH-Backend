@@ -1,9 +1,15 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\CaseController;
+use App\Http\Controllers\Admin\ContentModuleController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LocalizationController;
+use App\Http\Controllers\Admin\PeopleController;
 use App\Http\Controllers\Admin\ThemeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PortalController;
+use App\Http\Controllers\WebAuthController;
 use Illuminate\Support\Facades\Route;
 
 // Public Portal
@@ -13,8 +19,36 @@ Route::get('/track/{caseNo}', [PortalController::class, 'track'])->name('portal.
 // Locale Switcher
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
-// Admin Panel Routes (Step 3: Theme & Localization)
-Route::prefix('admin')->name('admin.')->group(function () {
+// Web Authentication
+Route::get('/login', [WebAuthController::class, 'showLogin'])->name('login');
+Route::post('/login', [WebAuthController::class, 'login'])->name('login.post');
+Route::post('/logout', [WebAuthController::class, 'logout'])->name('logout');
+Route::get('/dev/quick-login/{role}', [WebAuthController::class, 'quickLogin'])->name('dev.quick-login');
+
+// Admin Panel Routes
+Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Applications / Cases Workspace
+    Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
+    Route::get('/cases/{id}', [CaseController::class, 'show'])->name('cases.show');
+    Route::post('/cases/{id}/transition', [CaseController::class, 'transition'])->name('cases.transition');
+    Route::post('/cases/{id}/note', [CaseController::class, 'addNote'])->name('cases.note');
+    Route::post('/cases/{id}/assign', [CaseController::class, 'assign'])->name('cases.assign');
+    Route::post('/cases/{id}/follow-up', [CaseController::class, 'addFollowUp'])->name('cases.follow-up');
+
+    // People & Geographic Scoping
+    Route::get('/people', [PeopleController::class, 'index'])->name('people.index');
+    Route::post('/people', [PeopleController::class, 'store'])->name('people.store');
+    Route::post('/people/{id}/toggle-active', [PeopleController::class, 'toggleActive'])->name('people.toggle-active');
+
+    // Content & Community Modules
+    Route::get('/content', [ContentModuleController::class, 'index'])->name('content.index');
+
+    // Audit Trail
+    Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+
     // Theme Management
     Route::get('/theme', [ThemeController::class, 'index'])->name('theme.index');
     Route::post('/theme/publish', [ThemeController::class, 'publish'])->name('theme.publish');
