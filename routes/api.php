@@ -21,6 +21,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/master-data', [ConfigController::class, 'masterData']);
     });
 
+    // Public Master Data & Tracking
+    Route::get('/categories', [ConfigController::class, 'categories']);
+    Route::get('/districts', [ConfigController::class, 'districts']);
+    Route::get('/applications/track/{caseNo}', [ApplicationController::class, 'track']);
+    Route::post('/applications', [ApplicationController::class, 'store']);
+
     // ==========================================
     // 2. AUTHENTICATION (OTP FLOW)
     // ==========================================

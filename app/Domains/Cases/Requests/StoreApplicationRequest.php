@@ -23,6 +23,11 @@ class StoreApplicationRequest extends FormRequest
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'idempotency_key' => ['nullable', 'string', 'max:64'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'is_helper_mode' => ['nullable', 'boolean'],
+            'beneficiary_name' => ['nullable', 'string', 'max:255'],
+            'beneficiary_phone' => ['nullable', 'string', 'max:20'],
         ];
     }
 }

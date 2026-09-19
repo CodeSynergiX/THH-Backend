@@ -122,4 +122,29 @@ class ConfigController extends Controller
             ],
         ]);
     }
+
+    public function categories(): JsonResponse
+    {
+        $categories = Category::with('subCategories')
+            ->where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    public function districts(): JsonResponse
+    {
+        $districts = District::with(['talukas.villages'])
+            ->where('is_active', true)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $districts,
+        ]);
+    }
 }

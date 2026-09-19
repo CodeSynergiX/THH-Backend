@@ -15,6 +15,7 @@ use App\Domains\Cases\Services\AutoAssignmentService;
 use App\Domains\Cases\Services\SLAEngineService;
 use App\Domains\Users\Scopes\ScopeHelper;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,19 @@ class ApplicationController extends Controller
     public function store(StoreApplicationRequest $request): JsonResponse
     {
         $user = $request->user();
+
+        if (! $user) {
+            $phone = $request->validated('phone') ?? $request->validated('beneficiary_phone') ?? ('98765'.rand(10000, 99999));
+            $name = $request->validated('name') ?? $request->validated('beneficiary_name') ?? 'Tribal Citizen';
+            $user = User::firstOrCreate(
+                ['phone' => $phone],
+                ['name' => $name, 'locale' => 'gu']
+            );
+            if (! $user->hasRole('citizen')) {
+                $user->assignRole('citizen');
+            }
+        }
+
         $idempotencyKey = $request->header('X-Idempotency-Key') ?? $request->validated('idempotency_key');
 
         if ($idempotencyKey) {
@@ -347,6 +361,28 @@ class ApplicationController extends Controller
             'success' => true,
             'message' => 'Feedback submitted successfully.',
             'data' => $application->only(['rating', 'feedback']),
+        ]);
+    }
+
+    /**
+     * Public tracking by Case Number (e.g. THH-2026-00001).
+     */
+    public function track(Request $request, string $caseNo): JsonResponse
+    {
+        $application = Application::where('case_no', strtoupper(trim($caseNo)))
+            ->with(['category', 'subCategory', 'village.taluka.district', 'publicTimelineEvents.actor:id,name'])
+            ->first();
+
+        if (! $application) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Application not found with the specified Case Number.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new CitizenApplicationResource($application),
         ]);
     }
 }
