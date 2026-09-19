@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Route;
 // Public Portal
 Route::get('/', [PortalController::class, 'index'])->name('home');
 Route::get('/track/{caseNo}', [PortalController::class, 'track'])->name('portal.track');
+Route::get('/community/{module}', [PortalController::class, 'showModule'])->name('portal.community.show');
+Route::post('/community/{module}/apply', [PortalController::class, 'applyHelp'])->name('portal.community.apply');
 
 // Locale Switcher
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');

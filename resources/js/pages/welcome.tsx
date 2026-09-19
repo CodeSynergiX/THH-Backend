@@ -347,9 +347,10 @@ export default function Welcome({ stats, categories = [] }: WelcomeProps) {
                 ) : (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         {categories.map((cat) => (
-                            <div
+                            <Link
                                 key={cat.id}
-                                className="bg-thh-surface border-thh-border hover:border-thh-primary group space-y-4 rounded-2xl border p-6 shadow-2xs transition-all hover:shadow-md"
+                                href={`/community/${cat.slug}`}
+                                className="bg-thh-surface border-thh-border hover:border-thh-primary group block space-y-4 rounded-2xl border p-6 shadow-2xs transition-all hover:shadow-md"
                             >
                                 <div className="bg-thh-bg border-thh-border flex h-12 w-12 items-center justify-center rounded-xl border transition-transform group-hover:scale-105">
                                     {getCategoryIcon(cat.slug)}
@@ -373,12 +374,12 @@ export default function Welcome({ stats, categories = [] }: WelcomeProps) {
                                     <span>
                                         {t(
                                             'cases.form.submit_button',
-                                            'Apply For Help',
+                                            'Explore Details & Apply',
                                         )}
                                     </span>
                                     <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 )}
