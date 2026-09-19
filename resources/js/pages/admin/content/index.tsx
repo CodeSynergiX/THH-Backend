@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from '@inertiajs/react';
 import {
     Layers,
     Landmark,
@@ -101,10 +102,13 @@ export default function ContentIndex({ modules }: ContentIndexProps) {
                                 <span className="text-thh-text-muted text-[11px] font-semibold">
                                     {m.active_count} Active
                                 </span>
-                                <span className="text-thh-primary inline-flex cursor-pointer items-center gap-1 font-bold hover:underline">
+                                <Link
+                                    href={`/admin/content/${m.slug}`}
+                                    className="bg-thh-primary/10 text-thh-primary hover:bg-thh-primary inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 hover:text-white"
+                                >
                                     <span>Manage</span>
                                     <ArrowRight className="h-3.5 w-3.5" />
-                                </span>
+                                </Link>
                             </div>
                         </div>
                     ))}

@@ -46,6 +46,9 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
 
     // Content & Community Modules
     Route::get('/content', [ContentModuleController::class, 'index'])->name('content.index');
+    Route::get('/content/{module}', [ContentModuleController::class, 'showModule'])->name('content.module');
+    Route::post('/content/{module}', [ContentModuleController::class, 'storeModuleItem'])->name('content.store');
+    Route::post('/content/{module}/{id}/toggle', [ContentModuleController::class, 'toggleModuleItem'])->name('content.toggle');
 
     // Audit Trail
     Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
