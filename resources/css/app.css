@@ -8,4 +8,22 @@
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+
+    --color-thh-primary: var(--color-primary);
+    --color-thh-secondary: var(--color-secondary);
+    --color-thh-accent: var(--color-accent);
+    --color-thh-bg: var(--color-bg);
+    --color-thh-surface: var(--color-surface);
+    --color-thh-text: var(--color-text);
+    --color-thh-text-muted: var(--color-text-muted);
+    --color-thh-border: var(--color-border);
+    --color-thh-status-received: var(--color-status-received);
+    --color-thh-status-verification: var(--color-status-verification);
+    --color-thh-status-categorised: var(--color-status-categorised);
+    --color-thh-status-assigned: var(--color-status-assigned);
+    --color-thh-status-assistance: var(--color-status-assistance);
+    --color-thh-status-followup: var(--color-status-followup);
+    --color-thh-status-resolved: var(--color-status-resolved);
+    --color-thh-status-rejected: var(--color-status-rejected);
+    --color-thh-status-onhold: var(--color-status-onhold);
 }
