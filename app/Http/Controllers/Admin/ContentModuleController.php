@@ -28,7 +28,7 @@ class ContentModuleController extends Controller
                 'title' => 'Government Schemes',
                 'title_gu' => 'સરકારી યોજનાઓ',
                 'count' => Scheme::count(),
-                'active_count' => Scheme::where('is_active', true)->count(),
+                'active_count' => Scheme::where('is_published', true)->count(),
                 'description' => 'Awas, Ayushman, Kisan Sahay, Forest Rights eligibility directory.',
             ],
             [
@@ -36,7 +36,7 @@ class ContentModuleController extends Controller
                 'title' => 'Scholarships',
                 'title_gu' => 'છાત્રવૃત્તિ સહાય',
                 'count' => Scholarship::count(),
-                'active_count' => Scholarship::where('is_active', true)->count(),
+                'active_count' => Scholarship::where('is_published', true)->count(),
                 'description' => 'Tribal welfare post-matric and higher education scholarships.',
             ],
             [
@@ -60,7 +60,7 @@ class ContentModuleController extends Controller
                 'title' => 'Emergency Blood Requests',
                 'title_gu' => 'ઇમરજન્સી રક્ત સહાય',
                 'count' => BloodRequest::count(),
-                'active_count' => BloodRequest::where('status', 'open')->count(),
+                'active_count' => BloodRequest::where('status', 'active')->count(),
                 'description' => 'Urgent blood donor matching across tribal talukas.',
             ],
             [
