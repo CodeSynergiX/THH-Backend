@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,8 +39,8 @@ class StaticPageController extends Controller
             'title_gu' => $validated['title_gu'],
             'body_en' => HtmlSanitizer::clean($validated['body_en']),
             'body_gu' => HtmlSanitizer::clean($validated['body_gu']),
-            'title_key' => Str::limit($validated['title_en'], 240, ''),
-            'content_key' => Str::limit(strip_tags($validated['body_en']), 240, ''),
+            'title_key' => $validated['title_en'],
+            'content_key' => strip_tags($validated['body_en']),
             'is_active' => $request->boolean('is_active', true),
         ]);
 

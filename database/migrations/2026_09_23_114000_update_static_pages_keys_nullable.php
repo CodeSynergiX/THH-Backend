@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('static_pages', function (Blueprint $table) {
-            $table->text('content_key')->nullable()->change();
+            $table->longText('content_key')->nullable()->change();
             $table->string('title_key')->nullable()->change();
         });
     }

@@ -510,8 +510,8 @@ class ContentRegistrySeeder extends Seeder
             StaticPage::updateOrCreate(
                 ['slug' => $page['slug']],
                 [
-                    'title_key' => Str::limit($page['title_en'], 240, ''),
-                    'content_key' => Str::limit(strip_tags($page['body_en']), 240, ''),
+                    'title_key' => $page['title_en'],
+                    'content_key' => strip_tags($page['body_en']),
                     'title_en' => $page['title_en'],
                     'title_gu' => $page['title_gu'],
                     'body_en' => $page['body_en'],
