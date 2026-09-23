@@ -39,8 +39,7 @@ class ScopeHelper
                 $cleanPhone = preg_replace('/[^0-9]/', '', $user->phone);
                 if (strlen($cleanPhone) >= 10) {
                     $last10 = substr($cleanPhone, -10);
-                    $q->orWhere('contact_phone', 'like', "%{$last10}%")
-                        ->orWhere('beneficiary_phone', 'like', "%{$last10}%");
+                    $q->orWhereHas('user', fn (Builder $uq) => $uq->where('phone', 'like', "%{$last10}%"));
                 }
             }
 
