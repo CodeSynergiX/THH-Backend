@@ -65,6 +65,8 @@ class Application extends Model
 
     public const STATUS_FOLLOW_UP = 'followUp';
 
+    public const STATUS_AWAITING_CONFIRMATION = 'awaiting_confirmation';
+
     public const STATUS_RESOLVED = 'resolved';
 
     public const STATUS_NEED_MORE_INFO = 'needMoreInfo';
@@ -214,5 +216,131 @@ class Application extends Model
         }
 
         return sprintf('%s%05d', $prefix, $nextNumber);
+    }
+
+    /**
+     * Get the dynamic sequence of workflow stages configured for an application.
+     */
+    public static function getWorkflowStagesFor(?string $currentStatus = null): array
+    {
+        $baseStages = [
+            [
+                'key' => self::STATUS_RECEIVED,
+                'name_en' => 'Received',
+                'name_gu' => 'નવી અરજી',
+                'headline_en' => 'Application Received',
+                'headline_gu' => 'અરજી સફળતાપૂર્વક નોંધાઈ',
+                'desc_en' => 'Application registered on portal and queued for desk review.',
+                'desc_gu' => 'અરજી પોર્ટલ પર નોંધાઈ છે અને સમીક્ષા માટે કતારમાં છે.',
+                'icon' => 'document-text-outline',
+            ],
+            [
+                'key' => self::STATUS_VERIFICATION,
+                'name_en' => 'Verification',
+                'name_gu' => 'ચકાસણી',
+                'headline_en' => 'In Verification & Inspection',
+                'headline_gu' => 'ચકાસણી અને સ્થળ તપાસ',
+                'desc_en' => 'Document verification and eligibility check underway.',
+                'desc_gu' => 'દસ્તાવેજો અને પાત્રતાની વિગતો ચકાસવામાં આવી રહી છે.',
+                'icon' => 'shield-checkmark-outline',
+            ],
+            [
+                'key' => self::STATUS_CATEGORISED,
+                'name_en' => 'Categorised',
+                'name_gu' => 'વર્ગીકૃત',
+                'headline_en' => 'Desk Categorised',
+                'headline_gu' => 'વિભાગીય વર્ગીકરણ',
+                'desc_en' => 'Application categorised and routed to the welfare department.',
+                'desc_gu' => 'અરજી સંબંધિત કલ્યાણ વિભાગમાં વર્ગીકૃત કરવામાં આવી છે.',
+                'icon' => 'grid-outline',
+            ],
+            [
+                'key' => self::STATUS_ASSIGNED,
+                'name_en' => 'Mentor Assigned',
+                'name_gu' => 'સેવક ફાળવણી',
+                'headline_en' => 'Assigned to Field Mentor',
+                'headline_gu' => 'ક્ષેત્ર સેવકને સોંપેલ',
+                'desc_en' => 'Assigned to local field mentor for on-ground seva.',
+                'desc_gu' => 'સ્થાનિક ક્ષેત્ર સેવકને સ્થળ સહાય માટે સોંપવામાં આવેલ છે.',
+                'icon' => 'person-outline',
+            ],
+            [
+                'key' => self::STATUS_ASSISTANCE,
+                'name_en' => 'Assistance',
+                'name_gu' => 'સહાય કામગીરી',
+                'headline_en' => 'Assistance Active',
+                'headline_gu' => 'સહાય પૂરી પાડવાની કામગીરી',
+                'desc_en' => 'Relief support and welfare scheme delivery underway.',
+                'desc_gu' => 'સ્થળ પર સહાય અને કલ્યાણકારી લાભ પહોંચાડવાની કામગીરી ચાલુ છે.',
+                'icon' => 'hand-left-outline',
+            ],
+            [
+                'key' => self::STATUS_FOLLOW_UP,
+                'name_en' => 'Follow-Up',
+                'name_gu' => 'ફોલો-અપ',
+                'headline_en' => 'Follow-Up Scheduled',
+                'headline_gu' => 'ફોલો-અપ શેડ્યૂલ',
+                'desc_en' => 'Follow-up review and progress consultation scheduled.',
+                'desc_gu' => 'સ્થિતિ ચકાસણી માટે ફોલો-અપ શેડ્યૂલ કરેલ છે.',
+                'icon' => 'calendar-outline',
+            ],
+            [
+                'key' => self::STATUS_AWAITING_CONFIRMATION,
+                'name_en' => 'Confirmation',
+                'name_gu' => 'અરજદાર પુષ્ટિ',
+                'headline_en' => 'Awaiting Confirmation',
+                'headline_gu' => 'અરજદાર દ્વારા પુષ્ટિ બાકી',
+                'desc_en' => 'Assistance delivered. Please review and confirm resolution.',
+                'desc_gu' => 'સહાય પહોંચાડાઈ છે. કૃપા કરીને તપાસીને પુષ્ટિ કરો.',
+                'icon' => 'checkmark-circle-outline',
+            ],
+            [
+                'key' => self::STATUS_RESOLVED,
+                'name_en' => 'Resolved',
+                'name_gu' => 'સફળતાપૂર્વક પૂર્ણ',
+                'headline_en' => 'Case Resolved & Closed',
+                'headline_gu' => 'કેસ સફળતાપૂર્વક પૂર્ણ થયો',
+                'desc_en' => 'Application has been successfully resolved and sanctioned.',
+                'desc_gu' => 'અરજી સફળતાપૂર્વક પૂર્ણ કરવામાં આવી છે.',
+                'icon' => 'checkmark-done-circle-outline',
+            ],
+        ];
+
+        if ($currentStatus === self::STATUS_NEED_MORE_INFO) {
+            array_splice($baseStages, 2, 0, [[
+                'key' => self::STATUS_NEED_MORE_INFO,
+                'name_en' => 'Need More Info',
+                'name_gu' => 'વિગત જરૂરી',
+                'headline_en' => 'Additional Details Needed',
+                'headline_gu' => 'વધારાની વિગત જરૂરી',
+                'desc_en' => 'Additional documents or details requested from applicant.',
+                'desc_gu' => 'અરજી આગળ વધારવા માટે વધારાના પુરાવા જરૂરી છે.',
+                'icon' => 'help-circle-outline',
+            ]]);
+        } elseif ($currentStatus === self::STATUS_ON_HOLD) {
+            array_splice($baseStages, 2, 0, [[
+                'key' => self::STATUS_ON_HOLD,
+                'name_en' => 'On Hold',
+                'name_gu' => 'મોકૂફ રાખેલ',
+                'headline_en' => 'Case On Hold',
+                'headline_gu' => 'અરજી મોકૂફ રાખવામાં આવી છે',
+                'desc_en' => 'Application temporarily on hold pending departmental decision.',
+                'desc_gu' => 'વિભાગીય નિર્ણય પેન્ડિંગ હોવાથી અરજી હાલ મોકૂફ છે.',
+                'icon' => 'pause-circle-outline',
+            ]]);
+        } elseif ($currentStatus === self::STATUS_REJECTED) {
+            $baseStages[] = [
+                'key' => self::STATUS_REJECTED,
+                'name_en' => 'Rejected',
+                'name_gu' => 'અસ્વીકાર',
+                'headline_en' => 'Application Rejected',
+                'headline_gu' => 'અરજી અસ્વીકાર કરવામાં આવી',
+                'desc_en' => 'Application does not meet required eligibility norms.',
+                'desc_gu' => 'નિયમો અનુસાર અરજી મંજૂર થઈ શકી નથી.',
+                'icon' => 'close-circle-outline',
+            ];
+        }
+
+        return $baseStages;
     }
 }

@@ -33,6 +33,28 @@ class ApplicationWorkflowService
     ): Application {
         $fromStatus = $application->status;
 
+        // If transitioning to the exact same status, record update note without failing
+        if ($fromStatus === $toStatus) {
+            if (! empty($note)) {
+                $actorRole = $actor->getRoleNames()->first() ?? 'mentor';
+                ApplicationTimelineEvent::create([
+                    'application_id' => $application->id,
+                    'event_type' => 'status_note_added',
+                    'from_status' => $toStatus,
+                    'to_status' => $toStatus,
+                    'title_key' => "app.timeline.status_{$toStatus}",
+                    'body' => $note,
+                    'actor_id' => $actor->id,
+                    'actor_role' => $actorRole,
+                    'visibility' => $visibility,
+                    'meta' => $meta,
+                    'created_at' => now(),
+                ]);
+            }
+
+            return $application;
+        }
+
         // 1. Verify if the transition is allowed
         $transition = WorkflowTransition::where('from_status', $fromStatus)
             ->where('to_status', $toStatus)
@@ -49,6 +71,20 @@ class ApplicationWorkflowService
                 }
             }
 
+            // Also permit if actor is the designated assignee for helper workflow transitions
+            if (! $allowed && $actor->id === $application->current_assignee_id && in_array($toStatus, [
+                Application::STATUS_ASSISTANCE,
+                Application::STATUS_FOLLOW_UP,
+                Application::STATUS_AWAITING_CONFIRMATION,
+                Application::STATUS_NEED_MORE_INFO,
+                Application::STATUS_VERIFICATION,
+                Application::STATUS_ON_HOLD,
+                Application::STATUS_RESOLVED,
+                Application::STATUS_REJECTED,
+            ])) {
+                $allowed = true;
+            }
+
             if (! $allowed) {
                 throw new InvalidArgumentException("Role not permitted to transition application from {$fromStatus} to {$toStatus}.");
             }
@@ -56,7 +92,20 @@ class ApplicationWorkflowService
             if ($transition->requires_note && empty($note)) {
                 throw new InvalidArgumentException("A note is required for transition from {$fromStatus} to {$toStatus}.");
             }
-        } elseif (! $actor->hasRole(['super_admin', 'admin', 'staff'])) {
+        } elseif ($actor->hasRole(['super_admin', 'admin', 'staff'])) {
+            $allowed = true;
+        } elseif ($actor->id === $application->current_assignee_id && in_array($toStatus, [
+            Application::STATUS_ASSISTANCE,
+            Application::STATUS_FOLLOW_UP,
+            Application::STATUS_AWAITING_CONFIRMATION,
+            Application::STATUS_NEED_MORE_INFO,
+            Application::STATUS_VERIFICATION,
+            Application::STATUS_ON_HOLD,
+            Application::STATUS_RESOLVED,
+            Application::STATUS_REJECTED,
+        ])) {
+            $allowed = true;
+        } else {
             throw new InvalidArgumentException("Invalid status transition from {$fromStatus} to {$toStatus}.");
         }
 
@@ -80,7 +129,23 @@ class ApplicationWorkflowService
             // 3. Write immutable timeline event
             $actorRole = $actor->getRoleNames()->first() ?? 'citizen';
 
-            ApplicationTimelineEvent::create([
+            if ($fromStatus === Application::STATUS_ASSIGNED && $toStatus === Application::STATUS_AWAITING_CONFIRMATION) {
+                ApplicationTimelineEvent::create([
+                    'application_id' => $application->id,
+                    'event_type' => 'status_changed_'.Application::STATUS_ASSISTANCE,
+                    'from_status' => Application::STATUS_ASSIGNED,
+                    'to_status' => Application::STATUS_ASSISTANCE,
+                    'title_key' => 'app.timeline.status_'.Application::STATUS_ASSISTANCE,
+                    'body' => 'સ્થળ તપાસ અને સહાય પ્રક્રિયા પૂર્ણ. (Field visit and assistance completed)',
+                    'actor_id' => $actor->id,
+                    'actor_role' => $actorRole,
+                    'visibility' => 'public',
+                    'notification_status' => ['email' => 'skipped', 'push' => 'skipped'],
+                    'created_at' => now()->subSecond(),
+                ]);
+            }
+
+            $event = ApplicationTimelineEvent::create([
                 'application_id' => $application->id,
                 'event_type' => "status_changed_{$toStatus}",
                 'from_status' => $fromStatus,
@@ -91,6 +156,7 @@ class ApplicationWorkflowService
                 'actor_role' => $actorRole,
                 'visibility' => $visibility,
                 'meta' => $meta,
+                'notification_status' => ['email' => 'pending', 'push' => 'pending'],
                 'created_at' => now(),
             ]);
 
@@ -103,9 +169,9 @@ class ApplicationWorkflowService
                 actorId: $actor->id
             );
 
-            // 5. Dispatch notification to the citizen
+            $notificationStatus = ['email' => 'skipped', 'push' => 'skipped'];
             if ($application->user) {
-                $this->notifier->dispatch(
+                $log = $this->notifier->dispatch(
                     recipient: $application->user,
                     eventKey: "case_status_{$toStatus}",
                     variables: [
@@ -120,7 +186,11 @@ class ApplicationWorkflowService
                         'deep_link' => "thh://applications/{$application->id}",
                     ]
                 );
+                $notificationStatus['email'] = $application->user->email ? 'sent' : 'skipped';
+                $notificationStatus['push'] = $log ? 'sent' : 'skipped';
+                $notificationStatus['at'] = now()->toIso8601String();
             }
+            $event->update(['notification_status' => $notificationStatus]);
 
             return $application;
         });

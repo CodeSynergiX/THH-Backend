@@ -7,6 +7,7 @@ use App\Domains\Notifications\Models\NotificationTemplate;
 use App\Domains\Settings\Models\Setting;
 use App\Models\User;
 use Database\Seeders\NotificationSeeder;
+use Database\Seeders\PermissionSeeder;
 use Database\Seeders\ThemeAndLocalizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -21,6 +22,7 @@ class NotificationSettingsTest extends TestCase
         parent::setUp();
         $this->seed(ThemeAndLocalizationSeeder::class);
         $this->seed(NotificationSeeder::class);
+        PermissionSeeder::syncCatalog();
 
         Role::findOrCreate('super_admin');
         Role::findOrCreate('admin');

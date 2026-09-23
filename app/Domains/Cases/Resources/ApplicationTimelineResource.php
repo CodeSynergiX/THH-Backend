@@ -24,6 +24,7 @@ class ApplicationTimelineResource extends JsonResource
             'actor_role' => $this->actor_role,
             'visibility' => $this->visibility,
             'meta' => $this->meta,
+            'notification_status' => $this->notification_status,
             'created_at' => $this->created_at ? $this->created_at->toIso8601String() : null,
         ];
     }

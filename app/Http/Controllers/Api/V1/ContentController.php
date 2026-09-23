@@ -178,7 +178,51 @@ class ContentController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => BloodRequest::with('hospital')->where('status', 'active')->get(),
+            'data' => BloodRequest::with('hospital')->where('status', 'active')->latest()->get(),
+        ]);
+    }
+
+    public function storeBloodRequest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'patient_name' => ['required', 'string', 'max:150'],
+            'blood_group' => ['required', 'string', 'max:10'],
+            'hospital_id' => ['nullable', 'exists:hospitals,id'],
+            'units_required' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'urgency' => ['nullable', 'string', 'in:urgent,medium,low'],
+            'contact_phone' => ['required', 'string', 'max:20'],
+        ]);
+
+        $bloodRequest = BloodRequest::create([
+            'patient_name' => $validated['patient_name'],
+            'blood_group' => strtoupper(trim($validated['blood_group'])),
+            'hospital_id' => $validated['hospital_id'] ?? null,
+            'units_required' => $validated['units_required'] ?? 1,
+            'urgency' => $validated['urgency'] ?? 'urgent',
+            'status' => 'active',
+            'contact_phone' => $validated['contact_phone'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Emergency SOS blood broadcast registered successfully.',
+            'data' => $bloodRequest->load('hospital'),
+        ], 201);
+    }
+
+    public function updateBloodRequestStatus(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:active,fulfilled,cancelled'],
+        ]);
+
+        $bloodRequest = BloodRequest::findOrFail($id);
+        $bloodRequest->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Emergency SOS blood request marked as {$validated['status']}.",
+            'data' => $bloodRequest->load('hospital'),
         ]);
     }
 

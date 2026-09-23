@@ -139,3 +139,88 @@ test('application workflow transitions update status, write timeline, audit log,
     expect($auditLog)->not->toBeNull();
     expect($auditLog->actor_id)->toBe($staff->id);
 });
+
+test('mentor can transition assigned case to awaiting_confirmation and update status', function () {
+    Role::findOrCreate('mentor');
+
+    $citizen = User::factory()->create(['phone' => '9876543205']);
+    $citizen->assignRole('citizen');
+
+    $mentor = User::factory()->create(['phone' => '9876543206', 'helper_status' => 'approved']);
+    $mentor->assignRole('mentor');
+
+    $category = Category::create([
+        'slug' => 'health-support',
+        'icon' => 'medkit',
+        'is_active' => true,
+    ]);
+
+    $application = Application::create([
+        'case_no' => Application::generateCaseNo(),
+        'user_id' => $citizen->id,
+        'category_id' => $category->id,
+        'title' => 'Medical Assistance',
+        'description' => 'Need help for hospital treatment.',
+        'urgency' => 'urgent',
+        'priority' => 'high',
+        'status' => Application::STATUS_ASSIGNED,
+        'current_assignee_id' => $mentor->id,
+    ]);
+
+    // Test resolving directly from assigned via Helper API
+    $response = $this->actingAs($mentor, 'sanctum')->postJson("/api/v1/helper/cases/{$application->id}/resolve", [
+        'resolution_note' => 'Field inspection conducted and medical grant processed.',
+    ]);
+
+    $response->assertOk();
+    expect($application->fresh()->status)->toBe(Application::STATUS_AWAITING_CONFIRMATION);
+
+    // Timeline should have recorded intermediate assistance and awaiting_confirmation
+    expect($application->timelineEvents()->where('event_type', 'status_changed_assistance')->exists())->toBeTrue();
+    expect($application->timelineEvents()->where('event_type', 'status_changed_awaiting_confirmation')->exists())->toBeTrue();
+});
+
+test('mentor can transition case to onHold and resolved via helper status update', function () {
+    Role::findOrCreate('mentor');
+
+    $citizen = User::factory()->create(['phone' => '9876543207']);
+    $citizen->assignRole('citizen');
+
+    $mentor = User::factory()->create(['phone' => '9876543208', 'helper_status' => 'approved']);
+    $mentor->assignRole('mentor');
+
+    $category = Category::create([
+        'slug' => 'agri-grant',
+        'icon' => 'leaf',
+        'is_active' => true,
+    ]);
+
+    $application = Application::create([
+        'case_no' => Application::generateCaseNo(),
+        'user_id' => $citizen->id,
+        'category_id' => $category->id,
+        'title' => 'Crop Assistance',
+        'description' => 'Crop damaged by wild animals.',
+        'urgency' => 'medium',
+        'priority' => 'normal',
+        'status' => Application::STATUS_ASSIGNED,
+        'current_assignee_id' => $mentor->id,
+    ]);
+
+    // 1. Transition to onHold
+    $responseOnHold = $this->actingAs($mentor, 'sanctum')->postJson("/api/v1/helper/cases/{$application->id}/status", [
+        'status' => 'onHold',
+        'notes' => 'Awaiting forest department clearance report.',
+    ]);
+    $responseOnHold->assertOk();
+    expect($application->fresh()->status)->toBe(Application::STATUS_ON_HOLD);
+
+    // 2. Transition from onHold to resolved
+    $responseResolved = $this->actingAs($mentor, 'sanctum')->postJson("/api/v1/helper/cases/{$application->id}/status", [
+        'status' => 'resolved',
+        'notes' => 'Clearance received and compensation disbursed.',
+    ]);
+    $responseResolved->assertOk();
+    expect($application->fresh()->status)->toBe(Application::STATUS_RESOLVED);
+    expect($application->fresh()->resolved_at)->not->toBeNull();
+});

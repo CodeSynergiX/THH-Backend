@@ -18,9 +18,11 @@ import {
     Settings,
     Bell,
     ChevronRight,
-    Phone,
-    Mail,
+    CalendarDays,
+    Languages,
     ExternalLink,
+    Mail,
+    Phone,
 } from 'lucide-react';
 import { useTranslation } from '../lib/i18n';
 
@@ -35,6 +37,7 @@ interface UserAuth {
     email?: string;
     phone?: string;
     roles: string[];
+    permissions?: string[];
     scope: string;
 }
 
@@ -44,9 +47,15 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
         auth?: { user?: UserAuth | null };
         flash?: { success?: string; error?: string };
         unread_notifications?: number;
+        branding?: { public_portal_enabled?: boolean };
     }>();
+    const isPublicPortalEnabled =
+        props.branding?.public_portal_enabled !== false;
 
     const currentUser = props.auth?.user;
+    const userPermissions = currentUser?.permissions ?? [];
+    const can = (permission?: string) =>
+        !permission || userPermissions.includes(permission);
     const unreadCount = props.unread_notifications ?? 0;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isDark, setIsDark] = useState(false);
@@ -84,18 +93,35 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     label: t('nav.dashboard', 'Dashboard'),
                     icon: LayoutDashboard,
                     active: url.startsWith('/admin/dashboard'),
+                    permission: 'dashboard.view',
                 },
                 {
                     href: '/admin/cases',
-                    label: t('nav.cases', 'Applications & Cases'),
+                    label: t('nav.cases', 'Queue'),
                     icon: FolderKanban,
                     active: url.startsWith('/admin/cases'),
+                    permission: 'cases.view',
+                },
+                {
+                    href: '/admin/appointments',
+                    label: t('nav.appointments', 'Appointments'),
+                    icon: CalendarDays,
+                    active: url.startsWith('/admin/appointments'),
+                    permission: 'cases.view',
+                },
+                {
+                    href: '/admin/notifications',
+                    label: t('nav.notifications', 'Notifications'),
+                    icon: Bell,
+                    active: url.startsWith('/admin/notifications'),
+                    permission: 'cases.view',
                 },
                 {
                     href: '/admin/people',
                     label: t('nav.people', 'People & Scoping'),
                     icon: Users,
                     active: url.startsWith('/admin/people'),
+                    permission: 'people.view',
                 },
             ],
         },
@@ -107,18 +133,28 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     label: t('nav.content', 'Content Modules'),
                     icon: Layers,
                     active: url.startsWith('/admin/content'),
+                    permission: 'content.view',
+                },
+                {
+                    href: '/admin/pages',
+                    label: t('nav.pages', 'Pages (Privacy, T&C)'),
+                    icon: Globe,
+                    active: url.startsWith('/admin/pages'),
+                    permission: 'cms.manage',
+                },
+                {
+                    href: '/admin/localization',
+                    label: t('nav.localization', 'Localization'),
+                    icon: Languages,
+                    active: url.startsWith('/admin/localization'),
+                    permission: 'cms.manage',
                 },
                 {
                     href: '/admin/theme',
                     label: t('nav.theme', 'Theme & Appearance'),
                     icon: Palette,
                     active: url.startsWith('/admin/theme'),
-                },
-                {
-                    href: '/admin/localization',
-                    label: t('nav.localization', 'Translations (i18n)'),
-                    icon: Globe,
-                    active: url.startsWith('/admin/localization'),
+                    permission: 'theme.manage',
                 },
             ],
         },
@@ -130,16 +166,23 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     label: t('nav.audit', 'Audit Trail'),
                     icon: ShieldCheck,
                     active: url.startsWith('/admin/audit'),
+                    permission: 'audit.view',
                 },
                 {
                     href: '/admin/settings',
                     label: t('nav.settings', 'Settings'),
                     icon: Settings,
                     active: url.startsWith('/admin/settings'),
+                    permission: 'settings.manage',
                 },
             ],
         },
-    ];
+    ]
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => can(item.permission)),
+        }))
+        .filter((group) => group.items.length > 0);
 
     return (
         <div className="bg-thh-bg text-thh-text flex min-h-screen font-sans transition-colors duration-200">
@@ -165,7 +208,7 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     {/* Brand Banner */}
                     <div className="border-thh-border flex h-16 items-center justify-between border-b px-5">
                         <Link
-                            href="/"
+                            href="/admin/dashboard"
                             className="group flex items-center space-x-3"
                         >
                             <div className="bg-thh-primary shadow-thh-primary/30 flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-black text-white shadow-md transition-transform duration-200 group-hover:scale-105">
@@ -260,13 +303,19 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     )}
 
                     <div className="text-thh-text-muted flex items-center justify-between pt-1 text-[11px]">
-                        <Link
-                            href="/"
-                            className="hover:text-thh-text flex items-center gap-1 transition-colors"
-                        >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            <span>Public Portal</span>
-                        </Link>
+                        {isPublicPortalEnabled ? (
+                            <Link
+                                href="/"
+                                className="hover:text-thh-text flex items-center gap-1 transition-colors"
+                            >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                <span>Public Portal</span>
+                            </Link>
+                        ) : (
+                            <span className="text-stone-400">
+                                Portal (Disabled)
+                            </span>
+                        )}
                         <span className="text-[10px]">v1.0.0</span>
                     </div>
                 </div>
@@ -397,13 +446,15 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                                 <Phone className="h-3 w-3" />
                                 Helpline available
                             </span>
-                            <Link
-                                href="/"
-                                className="hover:text-thh-text flex items-center gap-1 transition-colors"
-                            >
-                                <Home className="h-3 w-3" />
-                                Portal
-                            </Link>
+                            {isPublicPortalEnabled && (
+                                <Link
+                                    href="/"
+                                    className="hover:text-thh-text flex items-center gap-1 transition-colors"
+                                >
+                                    <Home className="h-3 w-3" />
+                                    Portal
+                                </Link>
+                            )}
                         </div>
                     </div>
                 </footer>

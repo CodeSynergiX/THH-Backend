@@ -110,6 +110,7 @@ export default function CasesIndex({
         { key: 'assigned', label: 'Assigned' },
         { key: 'assistance', label: 'Assistance' },
         { key: 'followUp', label: 'Follow-up' },
+        { key: 'awaiting_confirmation', label: 'Confirm' },
         { key: 'resolved', label: 'Resolved' },
     ];
 
@@ -229,9 +230,8 @@ export default function CasesIndex({
                         className="border-thh-border bg-thh-bg text-thh-text w-full rounded-xl border px-3 py-2 text-xs md:w-36"
                     >
                         <option value="all">All Urgencies</option>
-                        <option value="critical">Critical</option>
                         <option value="urgent">Urgent</option>
-                        <option value="normal">Normal</option>
+                        <option value="medium">Medium</option>
                         <option value="low">Low</option>
                     </select>
 
@@ -360,10 +360,10 @@ export default function CasesIndex({
                                                     <span
                                                         className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
                                                             c.urgency ===
-                                                            'critical'
+                                                            'urgent'
                                                                 ? 'bg-rose-500/10 text-rose-600'
                                                                 : c.urgency ===
-                                                                    'urgent'
+                                                                    'medium'
                                                                   ? 'bg-amber-500/10 text-amber-600'
                                                                   : 'bg-thh-bg text-thh-text-muted'
                                                         }`}

@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property int $id
  * @property string $slug
+ * @property string|null $name_en
+ * @property string|null $name_gu
  * @property string|null $icon
  * @property int $sort_order
  * @property bool $is_active
@@ -23,6 +25,8 @@ class Category extends Model
 
     protected $fillable = [
         'slug',
+        'name_en',
+        'name_gu',
         'icon',
         'sort_order',
         'is_active',

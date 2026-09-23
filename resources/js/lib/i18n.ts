@@ -62,9 +62,19 @@ export function useTranslation() {
         window.location.href = `/locale/${newLocale}?redirect=${encodeURIComponent(window.location.pathname)}`;
     };
 
+    const loc = (en?: string | null, gu?: string | null): string => {
+        if (locale === 'gu') {
+            return (gu && gu.trim() !== '' ? gu : en) || '';
+        }
+
+        return (en && en.trim() !== '' ? en : gu) || '';
+    };
+
     return {
         t,
+        loc,
         locale,
+        isGu: locale === 'gu',
         supportedLocales,
         switchLocale,
     };

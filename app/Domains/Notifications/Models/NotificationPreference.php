@@ -82,6 +82,7 @@ class NotificationPreference extends Model
     public const EVENT_MAP = [
         'case.status_changed' => 'case_status_change',
         'case.assigned' => 'assignment',
+        'case_assigned' => 'assignment',
         'case.follow_up_due' => 'follow_up_due',
         'case.sla_breached' => 'sla_breach',
         'case.resolved' => 'case_resolved',

@@ -3,10 +3,19 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        @php
+            $faviconUrl = \App\Domains\Settings\Branding::faviconUrl();
+        @endphp
+        <link rel="icon" href="{{ $faviconUrl ?: '/favicon.ico' }}" sizes="any">
+        @if($faviconUrl)
+            <link rel="icon" href="{{ $faviconUrl }}" type="image/png">
+            <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
+        @else
+            <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+            <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        @endif
 
         @fonts
 

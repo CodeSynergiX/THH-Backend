@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Permission;
@@ -76,7 +75,9 @@ class PeopleController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
             'role' => ['required', 'string', 'in:admin,staff,mentor,partner,volunteer,citizen'],
@@ -84,19 +85,38 @@ class PeopleController extends Controller
             'taluka_id' => ['nullable', 'exists:talukas,id'],
             'village_id' => ['nullable', 'exists:villages,id'],
             'password' => ['nullable', 'string', 'min:8'],
+            'gender' => ['nullable', 'in:male,female,other'],
+            'date_of_birth' => ['nullable', 'date'],
+            'blood_group' => ['nullable', 'string', 'max:8'],
         ]);
 
-        $newUser = User::create([
-            'name' => $validated['name'],
+        $first = $validated['first_name'] ?? null;
+        $last = $validated['last_name'] ?? null;
+        $name = $validated['name'] ?? trim(implode(' ', array_filter([$first, $last])));
+        $isSevak = in_array($validated['role'], ['mentor', 'volunteer'], true);
+
+        $newUser = new User([
+            'name' => $name !== '' ? $name : $validated['email'],
+            'first_name' => $first,
+            'last_name' => $last,
             'email' => $validated['email'],
             'phone' => $validated['phone'],
-            'password' => Hash::make($validated['password'] ?? 'Secret123!'),
+            'password' => $validated['password'] ?? 'Secret123!',
+            'gender' => $validated['gender'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'blood_group' => $validated['blood_group'] ?? null,
             'district_id' => $validated['district_id'] ?? null,
             'taluka_id' => $validated['taluka_id'] ?? null,
             'village_id' => $validated['village_id'] ?? null,
             'locale' => 'gu',
             'is_active' => true,
+            'helper_status' => $isSevak ? User::HELPER_APPROVED : null,
+            'on_duty' => false,
         ]);
+        if ($first || $last) {
+            $newUser->syncDisplayName($first, $last);
+        }
+        $newUser->save();
 
         $newUser->assignRole($validated['role']);
 
@@ -129,5 +149,91 @@ class PeopleController extends Controller
         );
 
         return back()->with('success', "Updated active status for {$user->name}.");
+    }
+
+    public function updateHelperStatus(Request $request, int $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'helper_status' => ['required', 'in:pending,approved,rejected'],
+        ]);
+
+        $user = User::findOrFail($id);
+        $before = $user->helper_status;
+        $user->helper_status = $validated['helper_status'];
+        $user->save();
+
+        AuditLog::record(
+            action: 'people.helper_status',
+            subject: $user,
+            before: ['helper_status' => $before],
+            after: ['helper_status' => $user->helper_status],
+            actorId: $request->user()?->id
+        );
+
+        return back()->with('success', "Updated Sevak status for {$user->name}.");
+    }
+
+    public function update(Request $request, int $id): RedirectResponse
+    {
+        $user = User::findOrFail($id);
+        $validated = $request->validate([
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+            'gender' => ['nullable', 'in:male,female,other'],
+            'date_of_birth' => ['nullable', 'date'],
+            'blood_group' => ['nullable', 'string', 'max:8'],
+        ]);
+
+        $user->fill($validated);
+        $user->syncDisplayName(
+            $validated['first_name'] ?? $user->first_name,
+            $validated['last_name'] ?? $user->last_name
+        );
+        $user->save();
+
+        return back()->with('success', "Updated profile fields for {$user->name}.");
+    }
+
+    /**
+     * Toggle a single permission on a role. Super admin cannot be stripped.
+     */
+    public function syncPermissions(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'role' => ['required', 'string'],
+            'permission' => ['required', 'string'],
+            'granted' => ['required', 'boolean'],
+        ]);
+
+        if ($validated['role'] === 'super_admin') {
+            return back()->with('error', 'Super admin permissions cannot be changed.');
+        }
+
+        $permissionName = $validated['permission'];
+
+        foreach (['web', 'sanctum'] as $guard) {
+            $role = Role::findByName($validated['role'], $guard);
+            Permission::findOrCreate($permissionName, $guard);
+
+            if ($validated['granted']) {
+                $role->givePermissionTo($permissionName);
+            } else {
+                $role->revokePermissionTo($permissionName);
+            }
+        }
+
+        AuditLog::record(
+            action: 'roles.permission.toggle',
+            subject: $request->user(),
+            before: null,
+            after: [
+                'role' => $validated['role'],
+                'permission' => $permissionName,
+                'granted' => $validated['granted'],
+            ],
+            actorId: $request->user()?->id
+        );
+
+        return back()->with('success', "Updated {$validated['role']} permission: {$permissionName}.");
     }
 }

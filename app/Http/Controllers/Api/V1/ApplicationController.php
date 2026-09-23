@@ -5,27 +5,31 @@ namespace App\Http\Controllers\Api\V1;
 use App\Domains\Cases\Models\Application;
 use App\Domains\Cases\Models\ApplicationDocument;
 use App\Domains\Cases\Models\ApplicationMessage;
+use App\Domains\Cases\Models\FollowUp;
 use App\Domains\Cases\Requests\StoreApplicationRequest;
 use App\Domains\Cases\Resources\ApplicationDocumentResource;
 use App\Domains\Cases\Resources\ApplicationResource;
 use App\Domains\Cases\Resources\ApplicationTimelineResource;
 use App\Domains\Cases\Resources\CitizenApplicationResource;
+use App\Domains\Cases\Services\ApplicationSubmissionService;
 use App\Domains\Cases\Services\ApplicationWorkflowService;
 use App\Domains\Cases\Services\AutoAssignmentService;
 use App\Domains\Cases\Services\SLAEngineService;
+use App\Domains\Cases\Urgency;
 use App\Domains\Users\Scopes\ScopeHelper;
+use App\Domains\Users\Services\OtpService;
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ApplicationController extends Controller
 {
     public function __construct(
         protected ApplicationWorkflowService $workflowService,
         protected SLAEngineService $slaEngine,
-        protected AutoAssignmentService $assignmentService
+        protected AutoAssignmentService $assignmentService,
+        protected ApplicationSubmissionService $submissionService,
+        protected OtpService $otp
     ) {}
 
     /**
@@ -35,7 +39,7 @@ class ApplicationController extends Controller
     {
         $user = $request->user();
 
-        $query = Application::with(['category', 'subCategory', 'village.taluka.district', 'currentAssignee']);
+        $query = Application::with(['category', 'subCategory', 'village.taluka.district', 'currentAssignee', 'user', 'timelineEvents', 'documents']);
         $query = ScopeHelper::applyApplicationScope($query, $user);
 
         if ($request->filled('status')) {
@@ -44,6 +48,10 @@ class ApplicationController extends Controller
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->query('category_id'));
+        }
+
+        if ($request->filled('urgency')) {
+            $query->where('urgency', Urgency::normalize((string) $request->query('urgency')));
         }
 
         if ($request->filled('search')) {
@@ -55,7 +63,14 @@ class ApplicationController extends Controller
             });
         }
 
-        $applications = $query->orderBy('created_at', 'desc')->paginate(15);
+        if ($user->hasRole('citizen') && ! $user->hasRole(['admin', 'super_admin', 'staff', 'collector', 'mentor', 'volunteer'])) {
+            $applications = $query->orderBy('created_at', 'desc')->paginate(15);
+        } else {
+            $applications = $query
+                ->orderByRaw("CASE WHEN urgency = 'urgent' THEN 1 WHEN urgency = 'medium' THEN 2 ELSE 3 END")
+                ->orderBy('sla_due_at')
+                ->paginate(15);
+        }
 
         $resourceClass = $user->hasRole('citizen')
             ? CitizenApplicationResource::class
@@ -78,94 +93,30 @@ class ApplicationController extends Controller
      */
     public function store(StoreApplicationRequest $request): JsonResponse
     {
-        $user = $request->user();
-
-        if (! $user) {
-            $phone = $request->validated('phone') ?? $request->validated('beneficiary_phone') ?? ('98765'.rand(10000, 99999));
-            $name = $request->validated('name') ?? $request->validated('beneficiary_name') ?? 'Tribal Citizen';
-            $user = User::firstOrCreate(
-                ['phone' => $phone],
-                ['name' => $name, 'locale' => 'gu']
-            );
-            if (! $user->hasRole('citizen')) {
-                $user->assignRole('citizen');
-            }
-        }
+        $resolved = $this->submissionService->resolveCitizen(
+            $request->user(),
+            $request->validated()
+        );
 
         $idempotencyKey = $request->header('X-Idempotency-Key') ?? $request->validated('idempotency_key');
+        $replayed = $idempotencyKey
+            ? Application::query()->where('idempotency_key', $idempotencyKey)->exists()
+            : false;
 
-        if ($idempotencyKey) {
-            $existing = Application::where('idempotency_key', $idempotencyKey)->first();
-            if ($existing) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Application previously submitted.',
-                    'data' => new CitizenApplicationResource($existing->load(['category', 'village'])),
-                ]);
-            }
-        }
-
-        $urgency = $request->validated('urgency') ?? 'normal';
-        $priority = match ($urgency) {
-            'critical' => 'critical',
-            'urgent' => 'high',
-            default => 'medium',
-        };
-
-        $application = DB::transaction(function () use ($request, $user, $urgency, $priority, $idempotencyKey) {
-            $caseNo = Application::generateCaseNo();
-            $slaDueAt = $this->slaEngine->calculateDueDate($urgency, $priority);
-
-            $app = Application::create([
-                'case_no' => $caseNo,
-                'user_id' => $user->id,
-                'category_id' => $request->validated('category_id'),
-                'sub_category_id' => $request->validated('sub_category_id'),
-                'title' => $request->validated('title'),
-                'description' => $request->validated('description'),
-                'urgency' => $urgency,
-                'priority' => $priority,
-                'status' => Application::STATUS_RECEIVED,
-                'village_id' => $request->validated('village_id') ?? $user->village_id,
-                'lat' => $request->validated('lat'),
-                'lng' => $request->validated('lng'),
-                'sla_due_at' => $slaDueAt,
-                'idempotency_key' => $idempotencyKey,
-            ]);
-
-            // Create initial timeline event
-            $app->timelineEvents()->create([
-                'event_type' => 'case_created',
-                'from_status' => null,
-                'to_status' => Application::STATUS_RECEIVED,
-                'title_key' => 'app.timeline.case_received',
-                'body' => 'Your help request has been registered and assigned case number '.$caseNo,
-                'actor_id' => $user->id,
-                'actor_role' => 'citizen',
-                'visibility' => 'public',
-                'created_at' => now(),
-            ]);
-
-            // Intelligent auto-assignment
-            $assignedStaff = $this->assignmentService->assignBestStaff($app);
-            if ($assignedStaff) {
-                $app->update(['current_assignee_id' => $assignedStaff->id]);
-                $app->assignments()->create([
-                    'assignee_id' => $assignedStaff->id,
-                    'assignee_type' => 'staff',
-                    'assigned_by' => $user->id,
-                    'created_at' => now(),
-                ]);
-            }
-
-            return $app;
-        });
+        $application = $this->submissionService->submit(
+            $resolved['user'],
+            $request->validated(),
+            $idempotencyKey,
+            $resolved['created'],
+            $resolved['password']
+        );
 
         return response()->json([
             'success' => true,
             'message' => 'Help request registered successfully with Case ID '.$application->case_no,
             'data' => new CitizenApplicationResource($application->load(['category', 'village', 'timelineEvents'])),
-        ], 201);
+            'account_created' => $resolved['created'],
+        ], $replayed ? 200 : 201);
     }
 
     /**
@@ -316,6 +267,29 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Citizen confirms the desk closed the case.
+     */
+    public function confirm(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $application = Application::where('user_id', $user->id)->findOrFail($id);
+
+        $updated = $this->workflowService->transition(
+            application: $application,
+            toStatus: Application::STATUS_RESOLVED,
+            actor: $user,
+            note: $request->input('note', 'Citizen confirmed the case is resolved.'),
+            visibility: 'public'
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thank you. The case is now closed.',
+            'data' => new CitizenApplicationResource($updated),
+        ]);
+    }
+
+    /**
      * Reopen a resolved application.
      */
     public function reopen(Request $request, int $id): JsonResponse
@@ -365,12 +339,67 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Appointments (follow-ups) scoped by role.
+     */
+    public function appointments(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $query = FollowUp::query()->with(['application:id,case_no,title,status,user_id', 'assignee:id,name']);
+
+        if ($user->hasRole(['mentor', 'volunteer'])) {
+            $query->where('assigned_to', $user->id);
+        } elseif ($user->hasRole('citizen') && ! $user->hasRole(['admin', 'super_admin', 'staff', 'collector'])) {
+            $query->whereHas('application', fn ($q) => $q->where('user_id', $user->id));
+        } elseif (! $user->hasRole(['super_admin', 'admin', 'staff', 'collector'])) {
+            $query->whereHas('application', fn ($q) => ScopeHelper::applyApplicationScope($q, $user));
+        }
+
+        $items = $query->orderBy('scheduled_for')->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Appointments loaded.',
+            'data' => $items,
+        ]);
+    }
+
+    /**
      * Public tracking by Case Number (e.g. THH-2026-00001).
      */
+    public function requestTrackOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'case_no' => ['required', 'string'],
+        ]);
+
+        $application = Application::query()
+            ->with('user')
+            ->where('case_no', strtoupper(trim($validated['case_no'])))
+            ->first();
+
+        if (! $application?->user?->email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No email is registered for this case.',
+            ], 404);
+        }
+
+        $code = $this->otp->issue(null, $application->user->email, 'track');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP sent to the application email.',
+            'data' => [
+                'email_hint' => $this->maskEmail($application->user->email),
+                'debug_code' => null,
+            ],
+        ]);
+    }
+
     public function track(Request $request, string $caseNo): JsonResponse
     {
         $application = Application::where('case_no', strtoupper(trim($caseNo)))
-            ->with(['category', 'subCategory', 'village.taluka.district', 'publicTimelineEvents.actor:id,name'])
+            ->with(['category', 'subCategory', 'village.taluka.district', 'user', 'publicTimelineEvents.actor:id,name'])
             ->first();
 
         if (! $application) {
@@ -380,9 +409,37 @@ class ApplicationController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        $otp = $request->input('otp');
+
+        $allowed = $user && (
+            $user->id === $application->user_id
+            || $user->hasRole(['super_admin', 'admin', 'staff', 'collector'])
+            || $application->current_assignee_id === $user->id
+        );
+
+        if (! $allowed && $otp && $application->user?->email) {
+            $allowed = $this->otp->verify(null, $application->user->email, (string) $otp, 'track');
+        }
+
+        if (! $allowed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Login or verify the application email OTP to view this case.',
+                'requires_auth' => true,
+            ], 403);
+        }
+
         return response()->json([
             'success' => true,
             'data' => new CitizenApplicationResource($application),
         ]);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return substr($name, 0, 2).'***@'.$domain;
     }
 }

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;600;700&family=Noto+Sans:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap');
 @import 'tailwindcss';
 
 @source '../views';
@@ -6,9 +7,8 @@
 
 @theme {
     --font-sans:
-        'Outfit', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+        'Noto Sans', 'Noto Sans Gujarati', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'Source Serif 4', 'Noto Sans Gujarati', Georgia, serif;
 
     --color-thh-primary: var(--color-primary);
     --color-thh-secondary: var(--color-secondary);
@@ -156,5 +156,69 @@
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23B45309' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* Google Fonts Import */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+.public-hero {
+    background:
+        radial-gradient(
+            circle at 12% 20%,
+            color-mix(in srgb, var(--color-accent) 22%, transparent),
+            transparent 42%
+        ),
+        radial-gradient(
+            circle at 88% 10%,
+            color-mix(in srgb, var(--color-secondary) 18%, transparent),
+            transparent 38%
+        ),
+        linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+
+.shape-blob {
+    position: absolute;
+    border-radius: 42% 58% 60% 40% / 45% 38% 62% 55%;
+    pointer-events: none;
+    animation: blob-shift 12s ease-in-out infinite;
+}
+
+@keyframes blob-shift {
+    0%,
+    100% {
+        border-radius: 42% 58% 60% 40% / 45% 38% 62% 55%;
+        transform: translate(0, 0) rotate(0deg);
+    }
+    50% {
+        border-radius: 58% 42% 38% 62% / 52% 60% 40% 48%;
+        transform: translate(8px, -10px) rotate(8deg);
+    }
+}
+
+.service-card {
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-4px);
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+}
+
+.font-serif {
+    font-family: var(--font-serif);
+}
+
+.cms-body p {
+    margin-bottom: 0.75rem;
+}
+
+.cms-body h2 {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    margin: 1.25rem 0 0.5rem;
+}

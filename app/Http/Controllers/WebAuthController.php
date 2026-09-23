@@ -2,23 +2,97 @@
 
 namespace App\Http\Controllers;
 
+use App\Domains\Users\RoleHome;
+use App\Domains\Users\Services\OtpService;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
 
 class WebAuthController extends Controller
 {
+    public function __construct(protected OtpService $otp) {}
+
     /**
      * Show the dignified NGO web login page.
      */
     public function showLogin(): Response
     {
         return Inertia::render('auth/login');
+    }
+
+    public function showForgotPassword(): Response
+    {
+        return Inertia::render('auth/forgot-password');
+    }
+
+    public function sendResetLink(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['email' => ['required', 'email']]);
+        Password::sendResetLink(['email' => $validated['email']]);
+
+        return back()->with('status', 'If that email exists, a reset link was sent.');
+    }
+
+    public function showResetPassword(Request $request, string $token): Response
+    {
+        return Inertia::render('auth/reset-password', [
+            'token' => $token,
+            'email' => $request->query('email', ''),
+        ]);
+    }
+
+    public function resetPassword(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::reset($validated, function (User $user, string $password) {
+            $user->forceFill(['password' => Hash::make($password)])->save();
+        });
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', 'Password updated. Sign in with your new password.')
+            : back()->withErrors(['email' => __($status)]);
+    }
+
+    public function requestLoginOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['email' => ['required', 'email']]);
+        $this->otp->issue(null, $validated['email'], 'login');
+
+        return back()->with('status', 'OTP sent to your email if the account exists.');
+    }
+
+    public function verifyLoginOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string'],
+        ]);
+
+        if (! $this->otp->verify(null, $validated['email'], $validated['code'], 'login')) {
+            return back()->withErrors(['code' => 'Invalid or expired OTP.']);
+        }
+
+        $user = User::query()->where('email', $validated['email'])->first();
+        if (! $user) {
+            return back()->withErrors(['email' => 'No account found for this email.']);
+        }
+
+        Auth::login($user);
+        $request->session()->regenerate();
+        $user->update(['last_login_at' => now()]);
+
+        return redirect()->intended(RoleHome::url($user));
     }
 
     /**
@@ -33,8 +107,9 @@ class WebAuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+            $user = Auth::user();
 
-            return redirect()->intended('/admin/dashboard');
+            return redirect()->intended(RoleHome::url($user));
         }
 
         return back()->withErrors([
@@ -107,11 +182,7 @@ class WebAuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        if ($role === 'citizen') {
-            return redirect('/');
-        }
-
-        return redirect('/admin/dashboard');
+        return redirect(RoleHome::url($user));
     }
 
     /**

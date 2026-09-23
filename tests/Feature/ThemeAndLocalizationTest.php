@@ -7,6 +7,9 @@ use App\Domains\Content\Models\Category;
 use App\Domains\Settings\Models\ThemeVersion;
 use App\Domains\Settings\Models\Translation;
 use App\Models\User;
+use Database\Seeders\ContentRegistrySeeder;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\PublicMultilingualSeeder;
 use Database\Seeders\ThemeAndLocalizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -22,6 +25,7 @@ class ThemeAndLocalizationTest extends TestCase
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
         $this->seed(ThemeAndLocalizationSeeder::class);
+        PermissionSeeder::syncCatalog();
     }
 
     public function test_portal_homepage_renders_successfully(): void
@@ -58,7 +62,10 @@ class ThemeAndLocalizationTest extends TestCase
             'status' => 'received',
         ]);
 
-        $found = $this->getJson('/track/THH-2026-00001');
+        $guest = $this->getJson('/track/THH-2026-00001');
+        $guest->assertStatus(403);
+
+        $found = $this->actingAs($citizen)->getJson('/track/THH-2026-00001');
         $found->assertStatus(200)
             ->assertJsonPath('data.case_no', 'THH-2026-00001')
             ->assertJsonPath('data.status', 'received');
@@ -171,5 +178,29 @@ class ThemeAndLocalizationTest extends TestCase
         $responseGu = $this->get('/locale/gu?redirect=/');
         $responseGu->assertRedirect('/');
         $this->assertEquals('gu', session('locale'));
+    }
+
+    public function test_public_ui_and_module_copy_switch_with_locale(): void
+    {
+        $this->seed(ContentRegistrySeeder::class);
+        $this->seed(PublicMultilingualSeeder::class);
+
+        $this->get('/locale/gu?redirect=/');
+        $homeGu = $this->get('/');
+        $homeGu->assertOk();
+        $homeGu->assertInertia(fn ($page) => $page
+            ->component('welcome')
+            ->has('modules')
+            ->where('modules.0.title_gu', 'સરકારી યોજનાઓ')
+        );
+
+        $tilesGu = $this->getJson('/api/v1/config/home-tiles?locale=gu');
+        $tilesGu->assertOk()->assertJsonFragment(['title' => 'સરકારી યોજનાઓ']);
+
+        $tilesEn = $this->getJson('/api/v1/config/home-tiles?locale=en');
+        $tilesEn->assertOk()->assertJsonFragment(['title' => 'Government Schemes']);
+
+        $aboutGu = $this->getJson('/api/v1/config/pages/about-us?locale=gu');
+        $aboutGu->assertOk()->assertJsonFragment(['title' => 'અમારા વિશે']);
     }
 }

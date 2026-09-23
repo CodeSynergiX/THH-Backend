@@ -7,6 +7,7 @@ use App\Domains\Content\Models\Scheme;
 use App\Domains\Users\Models\District;
 use App\Domains\Users\Models\Village;
 use App\Models\User;
+use Database\Seeders\ContentRegistrySeeder;
 use Database\Seeders\DemoDataSeeder;
 use Database\Seeders\ThemeAndLocalizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -106,6 +107,7 @@ test('demo data seeder is strictly idempotent and does not duplicate records whe
 test('public portal displays live counts directly from seeded database', function () {
     $this->seed(ThemeAndLocalizationSeeder::class);
     $this->seed(DemoDataSeeder::class);
+    $this->seed(ContentRegistrySeeder::class);
 
     $response = $this->get('/');
     $response->assertOk();
@@ -118,6 +120,6 @@ test('public portal displays live counts directly from seeded database', functio
         ->where('stats.citizens_helped', fn ($count) => $count >= 7)
         ->has('stats.villages_covered')
         ->where('stats.villages_covered', fn ($count) => $count >= 15)
-        ->has('categories', 8)
+        ->has('modules')
     );
 });

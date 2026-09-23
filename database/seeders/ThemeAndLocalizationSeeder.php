@@ -13,41 +13,41 @@ class ThemeAndLocalizationSeeder extends Seeder
     {
         // 1. Initial Dignified NGO Theme
         $lightTokens = [
-            'primary' => '#B33925',     // Warm Terracotta
-            'secondary' => '#2D5A3D',   // Deep Forest Green
-            'accent' => '#D48822',      // Warm Ochre
-            'bg' => '#FDFBF7',          // Warm Parchment
-            'surface' => '#FFFFFF',
-            'text' => '#1F2937',        // Deep Charcoal (11.5:1 contrast on #FDFBF7)
-            'text_muted' => '#6B7280',  // 4.6:1 contrast
-            'border' => '#E5E7EB',
+            'primary' => '#006026',
+            'secondary' => '#79573c',
+            'accent' => '#1b7a38',
+            'bg' => '#fff8f5',
+            'surface' => '#fff8f5',
+            'text' => '#2a170b',
+            'text_muted' => '#3f493f',
+            'border' => '#bfcabb',
             'status_received' => '#2563EB',
             'status_verification' => '#7C3AED',
             'status_categorised' => '#4F46E5',
-            'status_assigned' => '#DB2777',
+            'status_assigned' => '#1b7a38',
             'status_assistance' => '#D97706',
             'status_followup' => '#059669',
-            'status_resolved' => '#10B981',
-            'status_rejected' => '#DC2626',
-            'status_onhold' => '#6B7280',
+            'status_resolved' => '#006026',
+            'status_rejected' => '#ba1a1a',
+            'status_onhold' => '#6f7a6e',
         ];
 
         $darkTokens = [
-            'primary' => '#E05A44',
-            'secondary' => '#4E8B62',
-            'accent' => '#E5A13B',
-            'bg' => '#121212',
-            'surface' => '#1E1E1E',
-            'text' => '#F3F4F6',        // 15:1 contrast on #121212
-            'text_muted' => '#9CA3AF',  // 7.5:1 contrast
-            'border' => '#2E2E2E',
+            'primary' => '#7fda8c',
+            'secondary' => '#eabe9c',
+            'accent' => '#9bf7a6',
+            'bg' => '#1a110c',
+            'surface' => '#25180f',
+            'text' => '#ffede5',
+            'text_muted' => '#bfcabb',
+            'border' => '#412c1f',
             'status_received' => '#60A5FA',
             'status_verification' => '#A78BFA',
             'status_categorised' => '#818CF8',
-            'status_assigned' => '#F472B6',
+            'status_assigned' => '#7fda8c',
             'status_assistance' => '#FBBF24',
             'status_followup' => '#34D399',
-            'status_resolved' => '#34D399',
+            'status_resolved' => '#7fda8c',
             'status_rejected' => '#F87171',
             'status_onhold' => '#9CA3AF',
         ];
@@ -58,13 +58,13 @@ class ThemeAndLocalizationSeeder extends Seeder
                 'light' => $lightTokens,
                 'dark' => $darkTokens,
                 'meta' => [
-                    'name' => 'GGVT Dignified Heritage',
-                    'wcag_contrast_light' => '11.5:1 (AAA)',
-                    'wcag_contrast_dark' => '15:1 (AAA)',
+                    'name' => 'Living Canopy',
+                    'wcag_contrast_light' => 'AAA',
+                    'wcag_contrast_dark' => 'AAA',
                 ],
                 'is_published' => true,
                 'published_at' => now(),
-                'notes' => 'Initial dignified NGO theme palette for Tribal Helping Hand.',
+                'notes' => 'Living Canopy palette for Tribal Helping Hand mobile and admin.',
             ]
         );
 
@@ -189,6 +189,20 @@ class ThemeAndLocalizationSeeder extends Seeder
             ['content', 'modules.mentorship', 'નિષ્ણાત માર્ગદર્શન', 'Mentor Guidance'],
             ['content', 'modules.sakhi', 'સખી મંડળ પ્રવૃત્તિ', 'Sakhi Circle'],
             ['content', 'modules.village_reports', 'ગામ પ્રશ્નો અને ઉકેલ', 'Village Problems & Solutions'],
+
+            // MOBILE APP GROUP
+            ['mobile', 'splash.tagline', 'ગામડાની સેવા, ડિજિટલ હાથ', 'Village service, digital hands'],
+            ['mobile', 'onboarding.skip', 'છોડો', 'Skip'],
+            ['mobile', 'onboarding.next', 'આગળ', 'Next'],
+            ['mobile', 'onboarding.start', 'શરૂ કરો', 'Get started'],
+            ['mobile', 'auth.signup', 'નવું ખાતું બનાવો', 'Create account'],
+            ['mobile', 'auth.login', 'પ્રવેશ કરો', 'Log in'],
+            ['mobile', 'auth.forgot', 'પાસવર્ડ ભૂલી ગયા?', 'Forgot password?'],
+            ['mobile', 'auth.role_citizen', 'નાગરિક', 'Citizen'],
+            ['mobile', 'auth.role_sevak', 'સેવક / માર્ગદર્શક', 'Mentor / Volunteer'],
+            ['mobile', 'form.need_help', 'સહાય વિનંતી', 'Need help'],
+            ['mobile', 'mentor.pending', 'મંજૂરી બાકી છે', 'Awaiting coordinator approval'],
+            ['mobile', 'mentor.on_duty', 'ફરજ પર', 'On duty'],
         ];
 
         foreach ($translations as [$group, $key, $valGu, $valEn]) {

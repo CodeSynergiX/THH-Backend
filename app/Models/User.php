@@ -9,6 +9,7 @@ use App\Domains\Users\Models\Taluka;
 use App\Domains\Users\Models\Village;
 use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,10 +22,16 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $first_name
+ * @property string|null $last_name
  * @property string|null $phone
  * @property string|null $email
  * @property string|null $gender
  * @property int|null $age
+ * @property CarbonInterface|null $date_of_birth
+ * @property string|null $blood_group
+ * @property string|null $helper_status
+ * @property bool $on_duty
  * @property string|null $occupation
  * @property string|null $education
  * @property string|null $income_category
@@ -45,18 +52,34 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
+    use CanResetPassword, HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
+
+    public const HELPER_PENDING = 'pending';
+
+    public const HELPER_APPROVED = 'approved';
+
+    public const HELPER_REJECTED = 'rejected';
 
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'phone',
         'email',
         'password',
         'gender',
         'age',
+        'date_of_birth',
+        'blood_group',
         'district_id',
         'taluka_id',
         'village_id',
+        'address',
+        'pincode',
+        'ration_card_no',
+        'avatar_url',
+        'blood_donor_active',
+        'sms_alerts_active',
         'occupation',
         'education',
         'income_category',
@@ -65,6 +88,8 @@ class User extends Authenticatable
         'theme_preference',
         'fcm_status',
         'is_active',
+        'helper_status',
+        'on_duty',
         'consent_at',
         'last_login_at',
     ];
@@ -82,8 +107,40 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'on_duty' => 'boolean',
+            'blood_donor_active' => 'boolean',
+            'sms_alerts_active' => 'boolean',
             'age' => 'integer',
+            'date_of_birth' => 'date',
         ];
+    }
+
+    public function syncDisplayName(?string $firstName = null, ?string $lastName = null): void
+    {
+        $first = $firstName ?? $this->first_name;
+        $last = $lastName ?? $this->last_name;
+        $composed = trim(implode(' ', array_filter([$first, $last])));
+        if ($composed !== '') {
+            $this->name = $composed;
+        }
+    }
+
+    public function isApprovedHelper(): bool
+    {
+        if ($this->hasRole(['super_admin', 'admin', 'staff', 'collector'])) {
+            return true;
+        }
+
+        if (! $this->hasRole(['mentor', 'volunteer'])) {
+            return false;
+        }
+
+        // Only explicitly pending or rejected helpers are unapproved
+        if ($this->helper_status === self::HELPER_PENDING || $this->helper_status === self::HELPER_REJECTED) {
+            return false;
+        }
+
+        return true;
     }
 
     public function district(): BelongsTo
@@ -122,12 +179,8 @@ class User extends Authenticatable
      */
     public function getEffectiveScope(): string
     {
-        if ($this->hasRole(['super_admin', 'admin'])) {
+        if ($this->hasRole(['super_admin', 'admin', 'staff', 'collector'])) {
             return 'all';
-        }
-
-        if ($this->hasRole('staff')) {
-            return $this->village_id ? 'village' : ($this->district_id ? 'district' : 'all');
         }
 
         if ($this->hasRole(['mentor', 'volunteer'])) {

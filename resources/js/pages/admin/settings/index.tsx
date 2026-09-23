@@ -210,8 +210,17 @@ export default function SettingsIndex({
     const generalForm = useForm({
         app_name_en: String(settings.app_name_en ?? 'Tribal Helping Hand'),
         app_name_gu: String(settings.app_name_gu ?? 'ટ્રાઇબલ હેલ્પિંગ હૅન્ડ'),
+        app_name_short_en: String(
+            settings.app_name_short_en ?? settings.app_name_short ?? 'THH',
+        ),
+        app_name_short_gu: String(
+            settings.app_name_short_gu ?? settings.app_name_short ?? 'THH',
+        ),
         support_email: String(settings.support_email ?? ''),
         helpline_phone: String(settings.helpline_phone ?? ''),
+        public_portal_enabled: Boolean(settings.public_portal_enabled ?? true),
+        app_logo: null as File | null,
+        app_favicon: null as File | null,
     });
 
     const smtpForm = useForm({
@@ -292,7 +301,9 @@ export default function SettingsIndex({
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
-                            generalForm.post('/admin/settings/general');
+                            generalForm.post('/admin/settings/general', {
+                                forceFormData: true,
+                            });
                         }}
                         className="space-y-5"
                     >
@@ -301,7 +312,9 @@ export default function SettingsIndex({
                             description="App name displayed to citizens and staff."
                             icon={Globe}
                         >
+                            {/* 2-column: full name + short name for each language */}
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                {/* English row */}
                                 <FormField
                                     label="App Name (English)"
                                     id="app_name_en"
@@ -313,6 +326,19 @@ export default function SettingsIndex({
                                     required
                                 />
                                 <FormField
+                                    label="Short Name · EN (e.g. THH)"
+                                    id="app_name_short_en"
+                                    value={generalForm.data.app_name_short_en}
+                                    onChange={(v) =>
+                                        generalForm.setData(
+                                            'app_name_short_en',
+                                            v,
+                                        )
+                                    }
+                                    placeholder="THH"
+                                />
+                                {/* Gujarati row */}
+                                <FormField
                                     label="App Name (Gujarati)"
                                     id="app_name_gu"
                                     value={generalForm.data.app_name_gu}
@@ -322,6 +348,84 @@ export default function SettingsIndex({
                                     placeholder="ટ્રાઇબલ હેલ્પિંગ હૅન્ડ"
                                     required
                                 />
+                                <FormField
+                                    label="Short Name · GU (e.g. ટીએચએચ)"
+                                    id="app_name_short_gu"
+                                    value={generalForm.data.app_name_short_gu}
+                                    onChange={(v) =>
+                                        generalForm.setData(
+                                            'app_name_short_gu',
+                                            v,
+                                        )
+                                    }
+                                    placeholder="ટીએચએચ"
+                                />
+                            </div>
+                            <div>
+                                <p className="mb-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+                                    App logo (web + mobile)
+                                </p>
+                                <div className="flex items-center gap-4">
+                                    {typeof settings.app_logo_url ===
+                                        'string' &&
+                                        settings.app_logo_url && (
+                                            <img
+                                                src={String(
+                                                    settings.app_logo_url,
+                                                )}
+                                                alt="Current logo"
+                                                className="h-16 w-16 rounded-2xl border border-stone-200 bg-white object-contain p-1"
+                                            />
+                                        )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) =>
+                                            generalForm.setData(
+                                                'app_logo',
+                                                e.target.files?.[0] ?? null,
+                                            )
+                                        }
+                                        className="text-sm"
+                                    />
+                                </div>
+                                <p className="mt-1 text-xs text-stone-500">
+                                    PNG or SVG, square works best. Theme colors
+                                    still come from Theme settings.
+                                </p>
+                            </div>
+                            <div>
+                                <p className="mb-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+                                    Favicon (browser tab)
+                                </p>
+                                <div className="flex items-center gap-4">
+                                    {typeof settings.app_favicon_url ===
+                                        'string' &&
+                                        settings.app_favicon_url && (
+                                            <img
+                                                src={String(
+                                                    settings.app_favicon_url,
+                                                )}
+                                                alt="Current favicon"
+                                                className="h-10 w-10 rounded-lg border border-stone-200 bg-white object-contain p-1"
+                                            />
+                                        )}
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/x-icon,image/svg+xml,image/jpeg,image/webp,.ico"
+                                        onChange={(e) =>
+                                            generalForm.setData(
+                                                'app_favicon',
+                                                e.target.files?.[0] ?? null,
+                                            )
+                                        }
+                                        className="text-sm"
+                                    />
+                                </div>
+                                <p className="mt-1 text-xs text-stone-500">
+                                    32×32 or 64×64 PNG or ICO. Shows in the
+                                    browser tab on web and desk.
+                                </p>
                             </div>
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <FormField
@@ -345,6 +449,24 @@ export default function SettingsIndex({
                                     placeholder="+91 98765 43210"
                                 />
                             </div>
+                        </SectionCard>
+
+                        <SectionCard
+                            title="Public Portal Access"
+                            description="Control visibility of public website pages and citizen-facing portal routes."
+                            icon={Globe}
+                        >
+                            <Toggle
+                                checked={generalForm.data.public_portal_enabled}
+                                onChange={(v) =>
+                                    generalForm.setData(
+                                        'public_portal_enabled',
+                                        v,
+                                    )
+                                }
+                                label="Enable Public Portal & Website"
+                                description="When disabled, all public-facing pages (home, track case, community modules, static pages) are deactivated and root URL redirects directly to staff login."
+                            />
                         </SectionCard>
 
                         <div className="flex justify-end">

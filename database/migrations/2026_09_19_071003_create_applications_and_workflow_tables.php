@@ -74,7 +74,7 @@ return new class extends Migration
             $table->json('notification_status')->nullable();
             $table->timestamp('created_at')->useCurrent();
 
-            $table->index(['application_id', 'visibility', 'created_at']);
+            $table->index(['application_id', 'visibility', 'created_at'], 'ate_app_visibility_created_idx');
         });
 
         Schema::create('application_assignments', function (Blueprint $table) {

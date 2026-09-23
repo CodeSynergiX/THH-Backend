@@ -2,6 +2,7 @@
 
 namespace App\Domains\Settings\Resources;
 
+use App\Domains\Settings\Branding;
 use App\Domains\Settings\Models\ThemeVersion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,6 +19,7 @@ class ThemeVersionResource extends JsonResource
             'light' => $this->light,
             'dark' => $this->dark,
             'meta' => $this->meta,
+            'branding' => Branding::payload($request->query('locale', 'gu')),
             'published_at' => $this->published_at?->toIso8601String(),
         ];
     }

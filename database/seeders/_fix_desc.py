@@ -1,0 +1,29 @@
+from pathlib import Path
+
+p = Path(__file__).resolve().parent / "ContentRegistrySeeder.php"
+src = p.read_text(encoding="utf-8")
+
+
+def replace_gu_after(anchor: str, new: str) -> None:
+    global src
+    i = src.find(anchor)
+    if i < 0:
+        raise SystemExit("missing " + anchor)
+    key = "'description_gu' => '"
+    j = src.find(key, i)
+    q1 = j + len(key) - 1
+    q2 = src.find("'", q1 + 1)
+    src = src[: q1 + 1] + new + src[q2:]
+    print("ok", anchor[:36])
+
+
+replace_gu_after(
+    "Housing, Ayushman cards",
+    "\u0a86\u0ab5\u0abe\u0ab8, \u0a86\u0aaf\u0ac1\u0ab7\u0acd\u0aae\u0abe\u0aa8 \u0a95\u0abe\u0ab0\u0acd\u0aa1, \u0a95\u0abf\u0ab8\u0abe\u0aa8 \u0ab8\u0ab9\u0abe\u0aaf \u0a85\u0aa8\u0ac7 \u0a9c\u0a82\u0a97\u0ab2 \u0ab9\u0a95 \u2014 \u0a8f\u0a95 \u0a9c \u0aa1\u0ac7\u0ab8\u0acd\u0a95 \u0aaa\u0ab0. \u0a95\u0acb\u0aa3 \u0ab2\u0abe\u0aaf\u0a95 \u0a9b\u0ac7, \u0a95\u0aaf\u0abe \u0a95\u0abe\u0a97\u0ab3\u0acb \u0a9c\u0acb\u0a88\u0a8f \u0a85\u0aa8\u0ac7 \u0a85\u0ab0\u0a9c\u0ac0 \u0a95\u0ac7\u0ab5\u0ac0 \u0ab0\u0ac0\u0aa4\u0ac7 \u0a95\u0ab0\u0ab5\u0ac0 \u0aa4\u0ac7 \u0ab5\u0abe\u0a82\u0a9a\u0acb.",
+)
+replace_gu_after(
+    "Sakhi circles, savings groups",
+    "\u0ab8\u0a96\u0ac0 \u0aae\u0a82\u0aa1\u0ab3, \u0aac\u0a9a\u0aa4 \u0a9c\u0ac2\u0aa5 \u0a85\u0aa8\u0ac7 \u0a98\u0ab0\u0a86\u0a82\u0a97\u0aa3\u0abe \u0a89\u0aa6\u0acd\u0aaf\u0acb\u0a97. \u0a86\u0a97\u0ac7\u0ab5\u0abe\u0aa8 \u0a95\u0acb\u0aa3 \u0a9b\u0ac7, \u0ab6\u0ac1\u0a82 \u0a89\u0aa4\u0acd\u0aaa\u0abe\u0aa6\u0aa8 \u0aa5\u0abe\u0aaf \u0a9b\u0ac7, \u0a85\u0aa8\u0ac7 \u0aa8\u0ab5\u0abe \u0ab8\u0aad\u0acd\u0aaf\u0aa8\u0ac7 \u0a95\u0ac7\u0ab5\u0ac0 \u0ab0\u0ac0\u0aa4\u0ac7 \u0a9c\u0acb\u0aa1\u0ab5\u0abe \u0aa4\u0ac7 \u0a85\u0ab9\u0ac0\u0a82\u0aa5\u0ac0 \u0aaa\u0ac2\u0a9b\u0acb.",
+)
+p.write_text(src, encoding="utf-8")
+print("done")

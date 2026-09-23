@@ -9,6 +9,7 @@ use App\Domains\Content\Models\Category;
 use App\Domains\Users\Models\District;
 use App\Domains\Users\Scopes\ScopeHelper;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,7 +34,21 @@ class DashboardController extends Controller
         $totalCases = (clone $baseQuery)->count();
         $inVerification = (clone $baseQuery)->where('status', Application::STATUS_VERIFICATION)->count();
         $inAssistance = (clone $baseQuery)->whereIn('status', [Application::STATUS_ASSIGNED, Application::STATUS_ASSISTANCE])->count();
+        $awaitingConfirm = (clone $baseQuery)->where('status', Application::STATUS_AWAITING_CONFIRMATION)->count();
         $resolvedCases = (clone $baseQuery)->where('status', Application::STATUS_RESOLVED)->count();
+        $assignedCount = (clone $baseQuery)->whereNotNull('current_assignee_id')
+            ->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])
+            ->count();
+        $unassignedCount = (clone $baseQuery)->whereNull('current_assignee_id')
+            ->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])
+            ->count();
+        $urgencySplit = [
+            'urgent' => (clone $baseQuery)->where('urgency', 'urgent')->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])->count(),
+            'medium' => (clone $baseQuery)->where('urgency', 'medium')->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])->count(),
+            'low' => (clone $baseQuery)->where('urgency', 'low')->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])->count(),
+        ];
+        $roleCounts = collect(['super_admin', 'admin', 'staff', 'collector', 'mentor', 'volunteer', 'citizen'])
+            ->mapWithKeys(fn (string $role) => [$role => User::role($role)->count()]);
         $slaBreached = (clone $baseQuery)->whereNotNull('sla_due_at')
             ->where('sla_due_at', '<', now())
             ->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED])
@@ -75,9 +90,14 @@ class DashboardController extends Controller
                 'total_cases' => $totalCases,
                 'in_verification' => $inVerification,
                 'in_assistance' => $inAssistance,
+                'awaiting_confirmation' => $awaitingConfirm,
                 'resolved' => $resolvedCases,
+                'assigned' => $assignedCount,
+                'unassigned' => $unassignedCount,
                 'sla_breached' => $slaBreached,
                 'avg_rating' => $avgRating ? round((float) $avgRating, 1) : null,
+                'urgency' => $urgencySplit,
+                'roles' => $roleCounts,
             ],
             'urgent_cases' => $urgentCases,
             'recent_timeline' => $recentTimeline,

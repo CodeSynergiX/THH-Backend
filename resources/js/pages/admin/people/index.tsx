@@ -7,9 +7,15 @@ import { useTranslation } from '../../../lib/i18n';
 interface PersonItem {
     id: number;
     name: string;
+    first_name?: string | null;
+    last_name?: string | null;
     email: string;
     phone?: string;
     is_active: boolean;
+    helper_status?: string | null;
+    gender?: string | null;
+    date_of_birth?: string | null;
+    blood_group?: string | null;
     roles: Array<{ id: number; name: string }>;
     district?: { name_en: string };
     taluka?: { name_en: string };
@@ -77,6 +83,8 @@ export default function PeopleIndex({
         reset: resetAdd,
     } = useForm({
         name: '',
+        first_name: '',
+        last_name: '',
         email: '',
         phone: '',
         role: 'staff',
@@ -84,6 +92,9 @@ export default function PeopleIndex({
         taluka_id: '',
         village_id: '',
         password: '',
+        gender: '',
+        date_of_birth: '',
+        blood_group: '',
     });
 
     const handleFilter = (newParams: {
@@ -106,6 +117,14 @@ export default function PeopleIndex({
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         handleFilter({ search });
+    };
+
+    const handleHelperStatus = (id: number, helper_status: string) => {
+        router.post(
+            `/admin/people/${id}/helper-status`,
+            { helper_status },
+            { preserveScroll: true },
+        );
     };
 
     const handleToggleActive = (id: number) => {
@@ -258,6 +277,9 @@ export default function PeopleIndex({
                                             <th className="w-24 px-4 py-3.5">
                                                 Status
                                             </th>
+                                            <th className="w-36 px-4 py-3.5">
+                                                Sevak
+                                            </th>
                                             <th className="w-20 px-4 py-3.5 text-right">
                                                 Action
                                             </th>
@@ -267,7 +289,7 @@ export default function PeopleIndex({
                                         {people.data.length === 0 ? (
                                             <tr>
                                                 <td
-                                                    colSpan={7}
+                                                    colSpan={8}
                                                     className="text-thh-text-muted py-12 text-center text-sm"
                                                 >
                                                     {t(
@@ -315,20 +337,70 @@ export default function PeopleIndex({
                                                                 : 'Disabled'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3.5 text-right">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleToggleActive(
-                                                                    p.id,
-                                                                )
-                                                            }
-                                                            className="text-thh-text-muted hover:text-thh-primary text-xs font-semibold"
+                                                    <td className="px-4 py-3.5">
+                                                        <span
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                                                p.helper_status ===
+                                                                'approved'
+                                                                    ? 'bg-emerald-500/10 text-emerald-700'
+                                                                    : p.helper_status ===
+                                                                        'rejected'
+                                                                      ? 'bg-rose-500/10 text-rose-600'
+                                                                      : p.helper_status ===
+                                                                          'pending'
+                                                                        ? 'bg-amber-500/10 text-amber-700'
+                                                                        : 'text-thh-text-muted'
+                                                            }`}
                                                         >
-                                                            {p.is_active
-                                                                ? 'Disable'
-                                                                : 'Enable'}
-                                                        </button>
+                                                            {p.helper_status ||
+                                                                '—'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-right">
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            {p.helper_status ===
+                                                                'pending' && (
+                                                                <div className="flex gap-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleHelperStatus(
+                                                                                p.id,
+                                                                                'approved',
+                                                                            )
+                                                                        }
+                                                                        className="text-[11px] font-bold text-emerald-700"
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleHelperStatus(
+                                                                                p.id,
+                                                                                'rejected',
+                                                                            )
+                                                                        }
+                                                                        className="text-[11px] font-bold text-rose-600"
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleToggleActive(
+                                                                        p.id,
+                                                                    )
+                                                                }
+                                                                className="text-thh-text-muted hover:text-thh-primary text-xs font-semibold"
+                                                            >
+                                                                {p.is_active
+                                                                    ? 'Disable'
+                                                                    : 'Enable'}
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))
@@ -383,20 +455,53 @@ export default function PeopleIndex({
                                                 const has = r.permissions.some(
                                                     (p) => p.id === perm.id,
                                                 );
+                                                const locked =
+                                                    r.name === 'super_admin';
                                                 return (
                                                     <td
                                                         key={r.id}
                                                         className="px-4 py-2.5 text-center"
                                                     >
-                                                        {has ? (
-                                                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                                                        <button
+                                                            type="button"
+                                                            disabled={locked}
+                                                            title={
+                                                                locked
+                                                                    ? 'Super admin cannot be changed'
+                                                                    : has
+                                                                      ? `Revoke ${perm.name}`
+                                                                      : `Grant ${perm.name}`
+                                                            }
+                                                            onClick={() =>
+                                                                router.post(
+                                                                    '/admin/people/permissions',
+                                                                    {
+                                                                        role: r.name,
+                                                                        permission:
+                                                                            perm.name,
+                                                                        granted:
+                                                                            !has,
+                                                                    },
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                        preserveState: true,
+                                                                    },
+                                                                )
+                                                            }
+                                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                                                                locked
+                                                                    ? 'cursor-not-allowed bg-emerald-500/15 text-emerald-600'
+                                                                    : has
+                                                                      ? 'bg-emerald-500/15 text-emerald-600 hover:bg-rose-500/15 hover:text-rose-600'
+                                                                      : 'text-thh-border hover:bg-thh-bg hover:text-thh-text'
+                                                            }`}
+                                                        >
+                                                            {has ? (
                                                                 <Check className="h-3.5 w-3.5" />
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-thh-border">
-                                                                —
-                                                            </span>
-                                                        )}
+                                                            ) : (
+                                                                <span>—</span>
+                                                            )}
+                                                        </button>
                                                     </td>
                                                 );
                                             })}
@@ -430,6 +535,40 @@ export default function PeopleIndex({
                         </div>
 
                         <div className="space-y-3 text-xs">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        First name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={addData.first_name}
+                                        onChange={(e) =>
+                                            setAddData(
+                                                'first_name',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Last name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={addData.last_name}
+                                        onChange={(e) =>
+                                            setAddData(
+                                                'last_name',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                            </div>
                             <div>
                                 <label className="text-thh-text mb-1 block font-bold">
                                     Full Name
@@ -440,10 +579,62 @@ export default function PeopleIndex({
                                     onChange={(e) =>
                                         setAddData('name', e.target.value)
                                     }
-                                    required
                                     placeholder="e.g. Sureshbhai Gamit"
                                     className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Gender
+                                    </label>
+                                    <select
+                                        value={addData.gender}
+                                        onChange={(e) =>
+                                            setAddData('gender', e.target.value)
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    >
+                                        <option value="">—</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Birth date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={addData.date_of_birth}
+                                        onChange={(e) =>
+                                            setAddData(
+                                                'date_of_birth',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Blood group
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={addData.blood_group}
+                                        onChange={(e) =>
+                                            setAddData(
+                                                'blood_group',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="B+"
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">

@@ -161,6 +161,32 @@ class NotificationSeeder extends Seeder
                 'is_enabled' => true,
             ],
             [
+                'event_key' => 'case_assigned',
+                'channel' => 'all',
+                'title_template' => [
+                    'en' => 'Case assigned to you: {case_no}',
+                    'gu' => 'કેસ તમને સોંપાયો: {case_no}',
+                ],
+                'body_template' => [
+                    'en' => 'You have been assigned {case_no} — {title}. Please confirm and proceed.',
+                    'gu' => 'તમને કેસ {case_no} — {title} સોંપાયો છે. પુષ્ટિ કરો અને આગળ વધો.',
+                ],
+                'is_enabled' => true,
+            ],
+            [
+                'event_key' => 'case_status_awaiting_confirmation',
+                'channel' => 'all',
+                'title_template' => [
+                    'en' => 'Please confirm your case is resolved: {case_no}',
+                    'gu' => 'કેસ ઉકેલાયો છે તે પુષ્ટિ કરો: {case_no}',
+                ],
+                'body_template' => [
+                    'en' => 'The field desk believes {case_no} is complete. Confirm to close, or tell us if help is still needed.',
+                    'gu' => 'ક્ષેત્ર ડેસ્ક માને છે કે {case_no} પૂરું થયું. બંધ કરવા પુષ્ટિ કરો, અથવા હજુ સહાય જોઈએ તો કહો.',
+                ],
+                'is_enabled' => true,
+            ],
+            [
                 'event_key' => 'case_status_reopened',
                 'channel' => 'all',
                 'title_template' => [

@@ -1,7 +1,7 @@
 <?php
 
 use App\Domains\Content\Models\Category;
-use App\Domains\Settings\Models\HomeTile;
+use App\Domains\Content\Models\ContentModule;
 use App\Domains\Settings\Models\Language;
 use App\Domains\Settings\Models\ThemeVersion;
 use App\Domains\Settings\Models\Translation;
@@ -32,12 +32,18 @@ test('config endpoints return valid theme, languages, and translation dictionary
         'value' => 'આદિવાસી સહાયક હાથ',
     ]);
 
-    HomeTile::create([
-        'key' => 'schemes',
+    ContentModule::create([
+        'slug' => 'schemes',
+        'title_en' => 'Schemes',
+        'title_gu' => 'Yojana',
+        'description_en' => 'Welfare schemes',
+        'description_gu' => 'Welfare schemes',
         'icon' => 'file-text',
-        'target_route' => 'schemes',
-        'sort_order' => 1,
         'is_enabled' => true,
+        'is_public' => true,
+        'sort_order' => 1,
+        'show_apply_form' => true,
+        'type' => 'cms',
     ]);
 
     District::create([

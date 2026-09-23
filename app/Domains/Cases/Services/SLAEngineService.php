@@ -3,6 +3,7 @@
 namespace App\Domains\Cases\Services;
 
 use App\Domains\Cases\Models\Application;
+use App\Domains\Cases\Urgency;
 use Carbon\CarbonImmutable;
 
 class SLAEngineService
@@ -14,13 +15,13 @@ class SLAEngineService
     {
         $now = CarbonImmutable::now();
 
-        return match ($urgency) {
-            'critical' => $now->addHours(24),
+        $normalized = Urgency::normalize($urgency);
+
+        return match ($normalized) {
             'urgent' => $now->addHours(48),
             'low' => $now->addDays(10),
             default => match ($priority) {
-                'critical' => $now->addHours(36),
-                'high' => $now->addDays(3),
+                'high', 'critical' => $now->addDays(3),
                 'low' => $now->addDays(7),
                 default => $now->addDays(5),
             },

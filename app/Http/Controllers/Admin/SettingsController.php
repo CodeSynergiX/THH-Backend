@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Domains\Notifications\Models\NotificationTemplate;
+use App\Domains\Settings\Branding;
 use App\Domains\Settings\Models\Setting;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,6 +36,13 @@ class SettingsController extends Controller
 
         $notificationTemplates = NotificationTemplate::all();
 
+        $settings['app_logo_url'] = Branding::logoUrl(
+            is_string($settings['app_logo_path'] ?? null) ? $settings['app_logo_path'] : null
+        );
+        $settings['app_favicon_url'] = Branding::logoUrl(
+            is_string($settings['app_favicon_path'] ?? null) ? $settings['app_favicon_path'] : null
+        );
+
         return Inertia::render('admin/settings/index', [
             'settings' => $settings,
             'notification_templates' => $notificationTemplates,
@@ -48,12 +57,39 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'app_name_en' => ['required', 'string', 'max:100'],
             'app_name_gu' => ['required', 'string', 'max:100'],
+            'app_name_short_en' => ['nullable', 'string', 'max:20'],
+            'app_name_short_gu' => ['nullable', 'string', 'max:20'],
             'support_email' => ['required', 'email', 'max:200'],
             'helpline_phone' => ['nullable', 'string', 'max:30'],
+            'public_portal_enabled' => ['nullable', 'boolean'],
+            'app_logo' => ['nullable', 'image', 'max:2048'],
+            'app_favicon' => ['nullable', 'image', 'mimes:png,ico,svg,jpeg,jpg,webp', 'max:512'],
         ]);
 
-        foreach ($validated as $key => $val) {
-            Setting::set($key, $val, 'general');
+        foreach (['app_name_en', 'app_name_gu', 'app_name_short_en', 'app_name_short_gu', 'support_email', 'helpline_phone'] as $key) {
+            Setting::set($key, $validated[$key] ?? '', 'general');
+        }
+
+        if ($request->has('public_portal_enabled')) {
+            Setting::set('public_portal_enabled', $request->boolean('public_portal_enabled'), 'general');
+        }
+
+        if ($request->hasFile('app_logo')) {
+            $previous = Setting::get('app_logo_path');
+            $path = $request->file('app_logo')->store('branding', 'public');
+            Setting::set('app_logo_path', $path, 'general');
+            if (is_string($previous) && $previous !== '' && $previous !== $path) {
+                Storage::disk('public')->delete($previous);
+            }
+        }
+
+        if ($request->hasFile('app_favicon')) {
+            $previous = Setting::get('app_favicon_path');
+            $path = $request->file('app_favicon')->store('branding', 'public');
+            Setting::set('app_favicon_path', $path, 'general');
+            if (is_string($previous) && $previous !== '' && $previous !== $path) {
+                Storage::disk('public')->delete($previous);
+            }
         }
 
         Cache::forget('thh:settings_all');

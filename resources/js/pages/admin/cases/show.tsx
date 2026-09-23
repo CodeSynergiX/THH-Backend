@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     FileText,
@@ -20,6 +20,8 @@ interface CaseDetailProps {
         urgency: string;
         priority: string;
         status: string;
+        lat?: number | null;
+        lng?: number | null;
         sla_due_at?: string;
         resolved_at?: string;
         rating?: number;
@@ -32,6 +34,8 @@ interface CaseDetailProps {
             email?: string;
             age?: number;
             gender?: string;
+            date_of_birth?: string;
+            blood_group?: string;
             occupation?: string;
             education?: string;
             income_category?: string;
@@ -65,6 +69,12 @@ interface CaseDetailProps {
             visibility: string;
             created_at: string;
             actor?: { id: number; name: string };
+            notification_status?: {
+                email?: string;
+                push?: string;
+                template?: string;
+                at?: string;
+            } | null;
         }>;
         messages?: Array<{
             id: number;
@@ -93,9 +103,11 @@ interface CaseDetailProps {
         assigned_applications_count?: number;
     }>;
     allowedTransitions: Array<{
-        id: number;
+        id?: number;
         to_status: string;
-        requires_note: boolean;
+        from_status?: string;
+        label?: string;
+        requires_note?: boolean;
     }>;
 }
 
@@ -170,6 +182,14 @@ export default function CaseShow({
         });
     };
 
+    const { auth } = usePage<{
+        auth?: { user?: { id?: number; permissions?: string[] } };
+    }>().props;
+    const canAssign = Boolean(
+        auth?.user?.permissions?.includes('cases.assign'),
+    );
+    const isAssignee = application.current_assignee?.id === auth?.user?.id;
+
     const isSlaBreached =
         application.sla_due_at &&
         new Date(application.sla_due_at).getTime() < Date.now() &&
@@ -197,9 +217,11 @@ export default function CaseShow({
                             </span>
                             <span
                                 className={`rounded-md px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                                    application.urgency === 'critical'
+                                    application.urgency === 'urgent'
                                         ? 'bg-rose-500/10 text-rose-600'
-                                        : 'bg-amber-500/10 text-amber-600'
+                                        : application.urgency === 'medium'
+                                          ? 'bg-amber-500/10 text-amber-600'
+                                          : 'bg-thh-bg text-thh-text-muted'
                                 }`}
                             >
                                 {application.urgency}
@@ -240,6 +262,20 @@ export default function CaseShow({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {isAssignee && application.status === 'assigned' && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/cases/${application.id}/accept`,
+                                    )
+                                }
+                                className="bg-thh-secondary rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-95"
+                            >
+                                Accept assignment
+                            </button>
+                        )}
+
                         {allowedTransitions.length > 0 && (
                             <button
                                 type="button"
@@ -258,13 +294,15 @@ export default function CaseShow({
                             + Internal Note
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setShowAssignModal(true)}
-                            className="border-thh-border bg-thh-surface text-thh-text hover:bg-thh-bg rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-2xs"
-                        >
-                            Reassign
-                        </button>
+                        {canAssign && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAssignModal(true)}
+                                className="border-thh-border bg-thh-surface text-thh-text hover:bg-thh-bg rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-2xs"
+                            >
+                                Assign
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -307,6 +345,18 @@ export default function CaseShow({
                                             {application.user?.gender || '-'}
                                         </span>
                                     </div>
+                                    <div>
+                                        <span className="text-thh-text-muted block text-[10px]">
+                                            Birth date / Blood group
+                                        </span>
+                                        <span className="text-thh-text">
+                                            {application.user?.date_of_birth ||
+                                                '-'}{' '}
+                                            •{' '}
+                                            {application.user?.blood_group ||
+                                                '-'}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div>
                                     <span className="text-thh-text-muted block text-[10px]">
@@ -337,6 +387,83 @@ export default function CaseShow({
                                         </span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Location & GPS Pin Card */}
+                        <div className="bg-thh-surface border-thh-border space-y-3 rounded-2xl border p-5 shadow-2xs">
+                            <div className="border-thh-border flex items-center justify-between border-b pb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">📍</span>
+                                    <h4 className="text-thh-text text-xs font-bold tracking-wider uppercase">
+                                        Location & GPS Pin
+                                    </h4>
+                                </div>
+                                {application.lat && application.lng ? (
+                                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                        Pin Attached
+                                    </span>
+                                ) : (
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                        Village Level
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="space-y-2 text-xs">
+                                <div>
+                                    <span className="text-thh-text-muted block text-[10px]">
+                                        Village / Taluka / District
+                                    </span>
+                                    <span className="text-thh-text font-medium">
+                                        {application.village?.name_en || '-'},{' '}
+                                        {application.village?.taluka?.district
+                                            ?.name_en || '-'}
+                                    </span>
+                                </div>
+
+                                {application.lat && application.lng ? (
+                                    <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold tracking-wider text-emerald-900 uppercase">
+                                                GPS Coordinates
+                                            </span>
+                                            <span className="font-mono text-xs font-bold text-emerald-950">
+                                                {Number(
+                                                    application.lat,
+                                                ).toFixed(5)}
+                                                °,{' '}
+                                                {Number(
+                                                    application.lng,
+                                                ).toFixed(5)}
+                                                °
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <a
+                                                href={`https://www.google.com/maps?q=${application.lat},${application.lng}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white shadow-2xs transition hover:bg-emerald-800"
+                                            >
+                                                🗺️ Maps
+                                            </a>
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&destination=${application.lat},${application.lng}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="rounded-lg border border-emerald-700/30 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-900 shadow-2xs transition hover:bg-emerald-50"
+                                            >
+                                                🧭 Directions
+                                            </a>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-thh-text-muted text-[11px] italic">
+                                        No GPS coordinate pin attached by
+                                        applicant.
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -448,9 +575,38 @@ export default function CaseShow({
                                                         </span>
                                                     </div>
                                                     {ev.body && (
-                                                        <p className="text-thh-text bg-thh-bg border-thh-border mt-1 rounded-xl border p-3 text-xs">
+                                                        <p className="text-thh-text bg-thh-bg border-thh-border mt-1 rounded-xl border p-3 text-sm">
                                                             {ev.body}
                                                         </p>
+                                                    )}
+                                                    {ev.notification_status && (
+                                                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                                            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-700">
+                                                                Email:{' '}
+                                                                {ev
+                                                                    .notification_status
+                                                                    .email ||
+                                                                    'skipped'}
+                                                            </span>
+                                                            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-semibold text-sky-700">
+                                                                Push:{' '}
+                                                                {ev
+                                                                    .notification_status
+                                                                    .push ||
+                                                                    'skipped'}
+                                                            </span>
+                                                            {ev
+                                                                .notification_status
+                                                                .template && (
+                                                                <span className="text-thh-text-muted">
+                                                                    {
+                                                                        ev
+                                                                            .notification_status
+                                                                            .template
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
@@ -627,7 +783,7 @@ export default function CaseShow({
                                             key={t.to_status}
                                             value={t.to_status}
                                         >
-                                            {t.to_status}
+                                            {t.label || t.to_status}
                                         </option>
                                     ))}
                                 </select>

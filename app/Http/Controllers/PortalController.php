@@ -3,18 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Domains\Cases\Models\Application;
-use App\Domains\Cases\Models\ApplicationTimelineEvent;
-use App\Domains\Content\Models\BloodRequest;
+use App\Domains\Cases\Services\ApplicationSubmissionService;
 use App\Domains\Content\Models\Category;
-use App\Domains\Content\Models\HealthCamp;
-use App\Domains\Content\Models\JobPosting;
-use App\Domains\Content\Models\MockTest;
-use App\Domains\Content\Models\SakhiCircle;
-use App\Domains\Content\Models\Scheme;
-use App\Domains\Content\Models\Scholarship;
-use App\Domains\Content\Models\VillageReport;
+use App\Domains\Content\Models\ContentItem;
+use App\Domains\Content\Models\ContentModule;
+use App\Domains\Settings\Models\StaticPage;
 use App\Domains\Users\Models\District;
 use App\Domains\Users\Models\Village;
+use App\Domains\Users\Services\OtpService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +20,11 @@ use Inertia\Response;
 
 class PortalController extends Controller
 {
+    public function __construct(
+        protected ApplicationSubmissionService $submissions,
+        protected OtpService $otp
+    ) {}
+
     /**
      * Render the public citizen portal homepage with live database stats.
      */
@@ -33,10 +34,26 @@ class PortalController extends Controller
         $citizensCount = User::whereHas('roles', fn ($q) => $q->where('name', 'citizen'))->count();
         $villagesCount = Village::where('is_active', true)->count();
 
-        $categories = Category::where('is_active', true)
-            ->withCount('applications')
+        $modules = ContentModule::query()
+            ->public()
+            ->withCount('publishedItems')
             ->orderBy('sort_order')
             ->get();
+
+        $homeBlocks = ContentModule::query()
+            ->where('slug', 'home')
+            ->with(['publishedItems'])
+            ->first()?->publishedItems
+            ?->map(fn (ContentItem $item) => [
+                'slug' => $item->slug,
+                'title_en' => $item->title_en,
+                'title_gu' => $item->title_gu,
+                'excerpt_en' => $item->excerpt_en,
+                'excerpt_gu' => $item->excerpt_gu,
+                'body_en' => $item->body_en,
+                'body_gu' => $item->body_gu,
+            ])
+            ?->values() ?? collect();
 
         return Inertia::render('welcome', [
             'stats' => [
@@ -44,17 +61,41 @@ class PortalController extends Controller
                 'citizens_helped' => $citizensCount,
                 'villages_covered' => $villagesCount,
             ],
-            'categories' => $categories,
+            'modules' => $modules->where('slug', '!=', 'home')->values(),
+            'homeBlocks' => $homeBlocks,
+            'authUser' => $request->user(),
         ]);
     }
 
-    /**
-     * Quick case status lookup by Case Number (e.g. THH-2026-00001).
-     */
+    public function requestTrackOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['case_no' => ['required', 'string']]);
+        $case = Application::query()->with('user')->where('case_no', strtoupper(trim($validated['case_no'])))->first();
+
+        if (! $case?->user?->email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No email is registered for this case.',
+            ], 404);
+        }
+
+        $code = $this->otp->issue(null, $case->user->email, 'track');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP sent to the application email.',
+            'data' => [
+                'email_hint' => substr($case->user->email, 0, 2).'***',
+                'debug_code' => null,
+            ],
+        ]);
+    }
+
     public function track(Request $request, string $caseNo): JsonResponse
     {
-        $case = Application::where('case_no', strtoupper(trim($caseNo)))
-            ->with(['category', 'village.taluka.district'])
+        $case = Application::query()
+            ->with(['category', 'village.taluka.district', 'user', 'timelineEvents' => fn ($q) => $q->where('visibility', 'public')->with('actor:id,name')])
+            ->where('case_no', strtoupper(trim($caseNo)))
             ->first();
 
         if (! $case) {
@@ -64,105 +105,126 @@ class PortalController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        $allowed = $user && (
+            $user->id === $case->user_id
+            || $user->hasRole(['super_admin', 'admin', 'staff', 'collector'])
+        );
+
+        if (! $allowed && $request->filled('otp') && $case->user?->email) {
+            $allowed = $this->otp->verify(null, $case->user->email, (string) $request->input('otp'), 'track');
+        }
+
+        if (! $allowed) {
+            return response()->json([
+                'success' => false,
+                'requires_auth' => true,
+                'message' => 'Login or verify OTP sent to the application email.',
+            ], 403);
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
                 'case_no' => $case->case_no,
                 'status' => $case->status,
                 'title' => $case->title,
+                'description' => $case->description,
                 'category' => $case->category?->slug,
+                'category_name' => $case->category?->name_en,
                 'district' => $case->village?->taluka?->district?->name_en,
+                'taluka' => $case->village?->taluka?->name_en,
+                'village' => $case->village?->name_en,
+                'lat' => $case->lat !== null ? (float) $case->lat : null,
+                'lng' => $case->lng !== null ? (float) $case->lng : null,
+                'sla_due_at' => $case->sla_due_at?->toIso8601String(),
                 'created_at' => $case->created_at?->toIso8601String(),
                 'resolved_at' => $case->resolved_at?->toIso8601String(),
+                'applicant_name' => $case->user?->name,
+                'timeline' => $case->timelineEvents->map(fn ($event) => [
+                    'id' => $event->id,
+                    'event_type' => $event->event_type,
+                    'body' => $event->body,
+                    'actor' => $event->actor?->name,
+                    'actor_role' => $event->actor_role,
+                    'created_at' => $event->created_at?->toIso8601String(),
+                    'notification_status' => $event->notification_status,
+                ]),
             ],
         ]);
     }
 
-    /**
-     * Show public community module details with active listings.
-     */
     public function showModule(Request $request, string $module): Response
     {
-        $module = strtolower($module);
-
-        $items = match ($module) {
-            'schemes' => Scheme::where('is_published', true)->take(20)->get(),
-            'scholarships' => Scholarship::where('is_published', true)->take(20)->get(),
-            'jobs' => JobPosting::where('is_active', true)->take(20)->get(),
-            'health' => HealthCamp::where('is_active', true)->take(20)->get(),
-            'blood' => BloodRequest::whereIn('status', ['urgent', 'pending', 'open'])->take(20)->get(),
-            'mock_tests' => MockTest::where('is_published', true)->take(20)->get(),
-            'sakhi' => SakhiCircle::where('is_active', true)->take(20)->get(),
-            'village_reports' => VillageReport::with(['village.taluka.district', 'user'])->latest()->take(20)->get(),
-            default => Scheme::where('is_published', true)->take(10)->get(),
-        };
-
+        $record = ContentModule::query()->public()->where('slug', strtolower($module))->firstOrFail();
+        $items = $record->publishedItems()->paginate(20)->withQueryString();
         $districts = District::with(['talukas.villages'])->where('is_active', true)->get();
         $categories = Category::with('subCategories')->where('is_active', true)->get();
 
         return Inertia::render('public/module', [
-            'module' => $module,
+            'module' => $record,
             'items' => $items,
             'districts' => $districts,
             'categories' => $categories,
         ]);
     }
 
-    /**
-     * Public Citizen Assistance Application submission.
-     */
+    public function showItem(Request $request, string $module, string $item): Response
+    {
+        $record = ContentModule::query()->public()->where('slug', strtolower($module))->firstOrFail();
+        $content = $record->publishedItems()->where('slug', $item)->firstOrFail();
+        $districts = District::with(['talukas.villages'])->where('is_active', true)->get();
+
+        return Inertia::render('public/item', [
+            'module' => $record,
+            'item' => $content,
+            'districts' => $districts,
+        ]);
+    }
+
+    public function showStaticPage(string $slug): Response
+    {
+        $page = StaticPage::query()->where('slug', $slug)->where('is_active', true)->firstOrFail();
+
+        return Inertia::render('public/static-page', [
+            'page' => $page,
+        ]);
+    }
+
     public function applyHelp(Request $request, string $module): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'beneficiary_name' => 'required|string|max:150',
             'beneficiary_phone' => 'required|string|min:10|max:15',
+            'email' => 'required|email|max:255',
             'title' => 'required|string|max:200',
             'description' => 'required|string|max:2000',
-            'district_id' => 'required|exists:districts,id',
+            'district_id' => 'nullable|exists:districts,id',
             'taluka_id' => 'nullable|exists:talukas,id',
             'village_id' => 'nullable|exists:villages,id',
-            'urgency' => 'nullable|string|in:normal,urgent,emergency',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'urgency' => 'nullable|string|in:low,medium,urgent,normal,critical,emergency',
         ]);
 
-        $category = Category::where('slug', $module)->first()
-            ?? Category::where('is_active', true)->first();
-        $categoryId = $category ? $category->id : 1;
-
-        $year = date('Y');
-        $random = str_pad((string) random_int(1, 99999), 5, '0', STR_PAD_LEFT);
-        $caseNo = "THH-{$year}-{$random}";
-
-        $citizenUser = auth()->user()
-            ?? User::whereHas('roles', fn ($q) => $q->where('name', 'citizen'))->first()
-            ?? User::first();
-        $userId = $citizenUser ? $citizenUser->id : 1;
-
-        $application = Application::create([
-            'case_no' => $caseNo,
-            'user_id' => $userId,
-            'category_id' => $categoryId,
-            'village_id' => $validated['village_id'] ?? null,
-            'title' => $validated['title'],
-            'description' => "Applicant: {$validated['beneficiary_name']} (Phone: {$validated['beneficiary_phone']})\n\n{$validated['description']}",
-            'urgency' => $validated['urgency'] ?? 'normal',
-            'priority' => 'medium',
-            'status' => Application::STATUS_RECEIVED,
-            'sla_due_at' => now()->addDays(7),
+        $resolved = $this->submissions->resolveCitizen($request->user(), [
+            ...$validated,
+            'name' => $validated['beneficiary_name'],
+            'phone' => $validated['beneficiary_phone'],
         ]);
 
-        // Record timeline event
-        ApplicationTimelineEvent::create([
-            'application_id' => $application->id,
-            'event_type' => 'status_changed_received',
-            'from_status' => null,
-            'to_status' => Application::STATUS_RECEIVED,
-            'title_key' => 'app.timeline.status_received',
-            'body' => 'Application submitted through public community portal.',
-            'actor_id' => $userId,
-            'actor_role' => 'citizen',
-            'visibility' => 'public',
-            'created_at' => now(),
-        ]);
+        $application = $this->submissions->submit(
+            $resolved['user'],
+            [
+                ...$validated,
+                'module' => $module,
+                'name' => $validated['beneficiary_name'],
+                'phone' => $validated['beneficiary_phone'],
+            ],
+            null,
+            $resolved['created'],
+            $resolved['password']
+        );
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -171,10 +233,14 @@ class PortalController extends Controller
                 'data' => [
                     'case_no' => $application->case_no,
                     'status' => $application->status,
+                    'account_created' => $resolved['created'],
                 ],
             ]);
         }
 
-        return back()->with('success_case', $application->case_no);
+        $message = 'Request registered. Case '.$application->case_no.'. Check your email for updates'
+            .($resolved['created'] ? ' and login details.' : '.');
+
+        return back()->with('success', $message);
     }
 }

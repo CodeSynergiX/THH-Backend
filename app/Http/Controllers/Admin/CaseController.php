@@ -6,9 +6,10 @@ use App\Domains\Cases\Models\Application;
 use App\Domains\Cases\Models\ApplicationAssignment;
 use App\Domains\Cases\Models\ApplicationTimelineEvent;
 use App\Domains\Cases\Models\FollowUp;
-use App\Domains\Cases\Models\WorkflowTransition;
 use App\Domains\Cases\Services\ApplicationWorkflowService;
+use App\Domains\Cases\Services\SLAEngineService;
 use App\Domains\Content\Models\Category;
+use App\Domains\Notifications\Services\NotificationDispatcherService;
 use App\Domains\Settings\Models\AuditLog;
 use App\Domains\Users\Models\District;
 use App\Domains\Users\Scopes\ScopeHelper;
@@ -23,7 +24,8 @@ use Inertia\Response;
 class CaseController extends Controller
 {
     public function __construct(
-        protected ApplicationWorkflowService $workflow
+        protected ApplicationWorkflowService $workflow,
+        protected NotificationDispatcherService $notifier
     ) {}
 
     /**
@@ -92,6 +94,7 @@ class CaseController extends Controller
             Application::STATUS_ASSIGNED => (clone $countsQuery)->where('status', Application::STATUS_ASSIGNED)->count(),
             Application::STATUS_ASSISTANCE => (clone $countsQuery)->where('status', Application::STATUS_ASSISTANCE)->count(),
             Application::STATUS_FOLLOW_UP => (clone $countsQuery)->where('status', Application::STATUS_FOLLOW_UP)->count(),
+            Application::STATUS_AWAITING_CONFIRMATION => (clone $countsQuery)->where('status', Application::STATUS_AWAITING_CONFIRMATION)->count(),
             Application::STATUS_RESOLVED => (clone $countsQuery)->where('status', Application::STATUS_RESOLVED)->count(),
             Application::STATUS_REJECTED => (clone $countsQuery)->where('status', Application::STATUS_REJECTED)->count(),
             Application::STATUS_ON_HOLD => (clone $countsQuery)->where('status', Application::STATUS_ON_HOLD)->count(),
@@ -148,27 +151,39 @@ class CaseController extends Controller
 
         // Available staff members for reassignment with active case count
         $availableStaff = User::whereHas('roles', function ($q) {
-            $q->whereIn('name', ['staff', 'mentor']);
+            $q->whereIn('name', ['staff', 'mentor', 'volunteer', 'collector']);
         })
             ->where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('helper_status')->orWhere('helper_status', User::HELPER_APPROVED);
+            })
             ->withCount(['assignedApplications' => function ($q) {
                 $q->whereNotIn('status', [Application::STATUS_RESOLVED, Application::STATUS_REJECTED]);
             }])
             ->get(['id', 'name', 'email']);
 
-        // Eligible transitions based on current status and user's role
-        $userRoles = $user->getRoleNames()->all();
-        $allowedTransitions = WorkflowTransition::where('from_status', $application->status)
-            ->get()
-            ->filter(function ($t) use ($userRoles) {
-                foreach ($userRoles as $role) {
-                    if ($t->allowsRole($role) || in_array($role, ['super_admin', 'admin'])) {
-                        return true;
-                    }
-                }
+        // Eligible transitions based on current status
+        $allStatuses = [
+            Application::STATUS_RECEIVED => 'Received (નવી અરજી)',
+            Application::STATUS_VERIFICATION => 'In Verification / Field Inspection (ચકાસણી હેઠળ)',
+            Application::STATUS_CATEGORISED => 'Categorised (વર્ગીકૃત)',
+            Application::STATUS_ASSIGNED => 'Assigned to Mentor (સેવકને સોંપેલ)',
+            Application::STATUS_ASSISTANCE => 'Assistance In Progress (સહાય પ્રગતિમાં)',
+            Application::STATUS_FOLLOW_UP => 'Follow-Up Scheduled (ફોલો-અપ શેડ્યૂલ)',
+            Application::STATUS_AWAITING_CONFIRMATION => 'Awaiting Citizen Confirmation (અરજદાર પુષ્ટિ)',
+            Application::STATUS_RESOLVED => 'Resolved / Closed (સફળતાપૂર્વક પૂર્ણ)',
+            Application::STATUS_NEED_MORE_INFO => 'Need More Info (વધુ વિગત જરૂરી)',
+            Application::STATUS_ON_HOLD => 'On Hold (મોકૂફ રાખેલ)',
+            Application::STATUS_REJECTED => 'Rejected (અસ્વીકાર)',
+        ];
 
-                return false;
-            })
+        $allowedTransitions = collect($allStatuses)
+            ->reject(fn ($label, $status) => $status === $application->status)
+            ->map(fn ($label, $status) => [
+                'from_status' => $application->status,
+                'to_status' => $status,
+                'label' => $label,
+            ])
             ->values();
 
         return Inertia::render('admin/cases/show', [
@@ -240,12 +255,81 @@ class CaseController extends Controller
 
         $assignee = User::findOrFail($validated['assignee_id']);
 
+        // Ensure assigned mentor/volunteer is marked as approved helper so mobile app shows all assigned tasks
+        if ($assignee->hasRole(['mentor', 'volunteer']) && $assignee->helper_status !== User::HELPER_APPROVED) {
+            $assignee->helper_status = User::HELPER_APPROVED;
+            $assignee->save();
+        }
+
         DB::transaction(function () use ($application, $assignee, $user, $validated) {
             $prevAssigneeId = $application->current_assignee_id;
+            $prevStatus = $application->status;
             $application->current_assignee_id = $assignee->id;
 
-            if ($application->status === Application::STATUS_CATEGORISED || $application->status === Application::STATUS_VERIFICATION) {
+            $stagesBeforeAssigned = [
+                Application::STATUS_RECEIVED,
+                Application::STATUS_VERIFICATION,
+                Application::STATUS_CATEGORISED,
+            ];
+
+            if (in_array($application->status, $stagesBeforeAssigned, true)) {
+                // Automatically complete previous statuses so citizen tracker and timeline mark them done
+                if ($application->status === Application::STATUS_RECEIVED) {
+                    ApplicationTimelineEvent::firstOrCreate(
+                        [
+                            'application_id' => $application->id,
+                            'event_type' => 'status_changed_verification',
+                        ],
+                        [
+                            'from_status' => Application::STATUS_RECEIVED,
+                            'to_status' => Application::STATUS_VERIFICATION,
+                            'title_key' => 'app.timeline.status_verification',
+                            'body' => 'Application verified by administration prior to mentor assignment.',
+                            'actor_id' => $user->id,
+                            'actor_role' => $user->getRoleNames()->first() ?? 'admin',
+                            'visibility' => 'public',
+                            'created_at' => now(),
+                        ]
+                    );
+
+                    ApplicationTimelineEvent::firstOrCreate(
+                        [
+                            'application_id' => $application->id,
+                            'event_type' => 'status_changed_categorised',
+                        ],
+                        [
+                            'from_status' => Application::STATUS_VERIFICATION,
+                            'to_status' => Application::STATUS_CATEGORISED,
+                            'title_key' => 'app.timeline.status_categorised',
+                            'body' => 'Application desk-categorised and routed for mentor allocation.',
+                            'actor_id' => $user->id,
+                            'actor_role' => $user->getRoleNames()->first() ?? 'admin',
+                            'visibility' => 'public',
+                            'created_at' => now(),
+                        ]
+                    );
+                } elseif ($application->status === Application::STATUS_VERIFICATION) {
+                    ApplicationTimelineEvent::firstOrCreate(
+                        [
+                            'application_id' => $application->id,
+                            'event_type' => 'status_changed_categorised',
+                        ],
+                        [
+                            'from_status' => Application::STATUS_VERIFICATION,
+                            'to_status' => Application::STATUS_CATEGORISED,
+                            'title_key' => 'app.timeline.status_categorised',
+                            'body' => 'Application desk-categorised and routed for mentor allocation.',
+                            'actor_id' => $user->id,
+                            'actor_role' => $user->getRoleNames()->first() ?? 'admin',
+                            'visibility' => 'public',
+                            'created_at' => now(),
+                        ]
+                    );
+                }
+
                 $application->status = Application::STATUS_ASSIGNED;
+                $application->sla_due_at = app(SLAEngineService::class)
+                    ->calculateDueDate($application->urgency, $application->priority);
             }
 
             $application->save();
@@ -260,7 +344,23 @@ class CaseController extends Controller
                 'created_at' => now(),
             ]);
 
-            // Timeline event
+            // If status changed to assigned, record status transition event
+            if ($prevStatus !== Application::STATUS_ASSIGNED && $application->status === Application::STATUS_ASSIGNED) {
+                ApplicationTimelineEvent::create([
+                    'application_id' => $application->id,
+                    'event_type' => 'status_changed_assigned',
+                    'from_status' => $prevStatus,
+                    'to_status' => Application::STATUS_ASSIGNED,
+                    'title_key' => 'app.timeline.status_assigned',
+                    'body' => "Case status advanced to assigned upon allocating dedicated mentor {$assignee->name}.",
+                    'actor_id' => $user->id,
+                    'actor_role' => $user->getRoleNames()->first() ?? 'admin',
+                    'visibility' => 'public',
+                    'created_at' => now(),
+                ]);
+            }
+
+            // Timeline event for assignment / reassignment
             ApplicationTimelineEvent::create([
                 'application_id' => $application->id,
                 'event_type' => 'case_reassigned',
@@ -277,13 +377,62 @@ class CaseController extends Controller
             AuditLog::record(
                 action: 'case.assign',
                 subject: $application,
-                before: ['assignee_id' => $prevAssigneeId],
-                after: ['assignee_id' => $assignee->id],
+                before: [
+                    'assignee_id' => $prevAssigneeId,
+                    'status' => $prevStatus,
+                ],
+                after: [
+                    'assignee_id' => $assignee->id,
+                    'status' => $application->status,
+                ],
                 actorId: $user->id
             );
         });
 
+        $this->notifier->dispatch(
+            recipient: $assignee,
+            eventKey: 'case_assigned',
+            variables: [
+                'case_no' => $application->case_no,
+                'title' => $application->title,
+                'status' => $application->status,
+            ],
+            extraData: [
+                'application_id' => $application->id,
+                'case_no' => $application->case_no,
+                'deep_link' => "thh://applications/{$application->id}",
+            ]
+        );
+
         return back()->with('success', "Case assigned to {$assignee->name}.");
+    }
+
+    /**
+     * Assigned helper confirms they will proceed.
+     */
+    public function accept(Request $request, int $id): RedirectResponse
+    {
+        $user = $request->user();
+        $application = ScopeHelper::applyApplicationScope(Application::query(), $user)
+            ->where('current_assignee_id', $user->id)
+            ->findOrFail($id);
+
+        ApplicationAssignment::where('application_id', $application->id)
+            ->where('assignee_id', $user->id)
+            ->whereNull('accepted_at')
+            ->update(['accepted_at' => now()]);
+
+        if ($application->status === Application::STATUS_ASSIGNED) {
+            $this->workflow->transition(
+                application: $application,
+                toStatus: Application::STATUS_ASSISTANCE,
+                actor: $user,
+                note: 'Assignment accepted. Helper is proceeding.',
+                visibility: 'public'
+            );
+        }
+
+        return back()->with('success', 'You accepted this case.');
     }
 
     /**
@@ -301,10 +450,10 @@ class CaseController extends Controller
 
         FollowUp::create([
             'application_id' => $application->id,
-            'scheduled_at' => $validated['scheduled_at'],
+            'scheduled_for' => $validated['scheduled_at'],
             'notes' => $validated['notes'] ?? null,
             'status' => 'pending',
-            'conducted_by' => $user->id,
+            'assigned_to' => $user->id,
         ]);
 
         return back()->with('success', 'Follow-up reminder scheduled.');

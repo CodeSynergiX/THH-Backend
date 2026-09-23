@@ -2,7 +2,6 @@
 
 namespace App\Domains\Users\Scopes;
 
-use App\Domains\Cases\Models\Application;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -11,25 +10,15 @@ class ScopeHelper
     /**
      * Apply scope rules to an Applications query builder based on the authenticated user.
      *
-     * @param  Builder<Application>  $query
-     * @return Builder<Application>
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public static function applyApplicationScope(Builder $query, User $user): Builder
     {
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->hasRole(['super_admin', 'admin', 'staff', 'collector'])) {
             return $query;
-        }
-
-        if ($user->hasRole('staff')) {
-            return $query->where(function (Builder $q) use ($user) {
-                if ($user->village_id) {
-                    $q->where('village_id', $user->village_id);
-                } elseif ($user->district_id) {
-                    $q->whereHas('village.taluka', function (Builder $tq) use ($user) {
-                        $tq->where('district_id', $user->district_id);
-                    });
-                }
-            });
         }
 
         if ($user->hasRole(['mentor', 'volunteer'])) {
@@ -42,8 +31,23 @@ class ScopeHelper
             });
         }
 
-        // Citizen: own applications only
-        return $query->where('user_id', $user->id);
+        // Citizen: own applications only (by user_id OR phone / email match)
+        return $query->where(function (Builder $q) use ($user) {
+            $q->where('user_id', $user->id);
+
+            if (! empty($user->phone)) {
+                $cleanPhone = preg_replace('/[^0-9]/', '', $user->phone);
+                if (strlen($cleanPhone) >= 10) {
+                    $last10 = substr($cleanPhone, -10);
+                    $q->orWhere('contact_phone', 'like', "%{$last10}%")
+                        ->orWhere('beneficiary_phone', 'like', "%{$last10}%");
+                }
+            }
+
+            if (! empty($user->email)) {
+                $q->orWhereHas('user', fn (Builder $uq) => $uq->where('email', $user->email));
+            }
+        });
     }
 
     /**
@@ -54,17 +58,8 @@ class ScopeHelper
      */
     public static function applyUserScope(Builder $query, User $user): Builder
     {
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->hasRole(['super_admin', 'admin', 'staff', 'collector'])) {
             return $query;
-        }
-
-        if ($user->hasRole('staff')) {
-            if ($user->village_id) {
-                return $query->where('village_id', $user->village_id);
-            }
-            if ($user->district_id) {
-                return $query->where('district_id', $user->district_id);
-            }
         }
 
         return $query->where('id', $user->id);

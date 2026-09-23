@@ -19,12 +19,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/translations', [ConfigController::class, 'translations']);
         Route::get('/home-tiles', [ConfigController::class, 'homeTiles']);
         Route::get('/master-data', [ConfigController::class, 'masterData']);
+        Route::get('/modules', [ConfigController::class, 'modules']);
+        Route::get('/modules/{module}', [ConfigController::class, 'moduleItems']);
+        Route::get('/modules/{module}/{item}', [ConfigController::class, 'moduleItem']);
+        Route::get('/pages/{slug}', [ConfigController::class, 'staticPage']);
+        Route::get('/stats', [ConfigController::class, 'publicStats']);
+        Route::get('/workflow-stages', [ConfigController::class, 'workflowStages']);
     });
 
     // Public Master Data & Tracking
     Route::get('/categories', [ConfigController::class, 'categories']);
     Route::get('/districts', [ConfigController::class, 'districts']);
     Route::get('/applications/track/{caseNo}', [ApplicationController::class, 'track']);
+    Route::post('/applications/track/otp', [ApplicationController::class, 'requestTrackOtp']);
     Route::post('/applications', [ApplicationController::class, 'store']);
 
     // ==========================================
@@ -33,6 +40,10 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/otp/request', [AuthController::class, 'requestOtp']);
         Route::post('/otp/verify', [AuthController::class, 'verifyOtp']);
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'loginWithPassword']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });
 
     // ==========================================
@@ -44,18 +55,21 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::put('/me', [AuthController::class, 'updateMe']);
+        Route::post('/me/avatar', [AuthController::class, 'updateAvatar']);
         Route::post('/devices', [AuthController::class, 'registerDevice']);
 
         // Applications & Case Workflow
         Route::get('/applications', [ApplicationController::class, 'index']);
-        Route::post('/applications', [ApplicationController::class, 'store']);
+        // authenticated store kept for logged-in users; public POST /applications already creates accounts
         Route::get('/applications/{id}', [ApplicationController::class, 'show']);
         Route::get('/applications/{id}/timeline', [ApplicationController::class, 'timeline']);
         Route::post('/applications/{id}/documents', [ApplicationController::class, 'uploadDocument']);
         Route::get('/applications/{id}/messages', [ApplicationController::class, 'messages']);
         Route::post('/applications/{id}/messages', [ApplicationController::class, 'sendMessage']);
         Route::post('/applications/{id}/reopen', [ApplicationController::class, 'reopen']);
+        Route::post('/applications/{id}/confirm', [ApplicationController::class, 'confirm']);
         Route::post('/applications/{id}/feedback', [ApplicationController::class, 'feedback']);
+        Route::get('/appointments', [ApplicationController::class, 'appointments']);
 
         // Helper Portal (Staff, Mentors, Volunteers)
         Route::prefix('helper')->group(function () {
@@ -68,6 +82,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/cases/{id}/request-info', [HelperController::class, 'requestInfo']);
             Route::post('/cases/{id}/follow-up', [HelperController::class, 'scheduleFollowUp']);
             Route::post('/cases/{id}/resolve', [HelperController::class, 'resolve']);
+            Route::post('/duty', [HelperController::class, 'setDuty']);
         });
 
         // Content Modules
@@ -87,6 +102,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/health/camps', [ContentController::class, 'healthCamps']);
         Route::get('/health/hospitals', [ContentController::class, 'hospitals']);
         Route::get('/health/blood-requests', [ContentController::class, 'bloodRequests']);
+        Route::post('/health/blood-requests', [ContentController::class, 'storeBloodRequest']);
+        Route::post('/health/blood-requests/{id}/status', [ContentController::class, 'updateBloodRequestStatus']);
         Route::get('/sakhi', [ContentController::class, 'sakhi']);
         Route::get('/village-reports', [ContentController::class, 'villageReports']);
         Route::post('/village-reports', [ContentController::class, 'storeVillageReport']);

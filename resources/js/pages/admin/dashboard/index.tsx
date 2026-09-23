@@ -8,7 +8,6 @@ import {
     Activity,
     ShieldAlert,
     ArrowRight,
-    Star,
     ChevronRight,
 } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
@@ -46,9 +45,14 @@ interface DashboardProps {
         total_cases: number;
         in_verification: number;
         in_assistance: number;
+        awaiting_confirmation?: number;
         resolved: number;
+        assigned?: number;
+        unassigned?: number;
         sla_breached: number;
         avg_rating?: number;
+        urgency?: { urgent?: number; medium?: number; low?: number };
+        roles?: Record<string, number>;
     };
     urgent_cases: UrgentCase[];
     recent_timeline: TimelineEvent[];
@@ -111,11 +115,25 @@ export default function DashboardIndex({
             bg: 'bg-emerald-500/10 border-emerald-500/20',
         },
         {
-            title: 'Citizen Feedback',
-            value: metrics.avg_rating ? `${metrics.avg_rating} / 5` : '-',
-            icon: Star,
-            color: 'text-thh-accent',
-            bg: 'bg-thh-accent/10 border-thh-accent/20',
+            title: 'Awaiting confirm',
+            value: metrics.awaiting_confirmation ?? 0,
+            icon: CheckCircle2,
+            color: 'text-thh-secondary',
+            bg: 'bg-thh-secondary/10 border-thh-secondary/20',
+        },
+        {
+            title: 'Unassigned',
+            value: metrics.unassigned ?? 0,
+            icon: AlertTriangle,
+            color: 'text-amber-600 dark:text-amber-400',
+            bg: 'bg-amber-500/10 border-amber-500/20',
+        },
+        {
+            title: 'Urgent open',
+            value: metrics.urgency?.urgent ?? 0,
+            icon: ShieldAlert,
+            color: 'text-rose-600 dark:text-rose-400',
+            bg: 'bg-rose-500/10 border-rose-500/20',
         },
     ];
 
@@ -293,6 +311,71 @@ export default function DashboardIndex({
                         )}
                     </div>
                 </div>
+
+                {(metrics.roles || metrics.assigned !== undefined) && (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="bg-thh-surface border-thh-border space-y-3 rounded-2xl border p-5">
+                            <h3 className="text-thh-text text-sm font-bold tracking-wider uppercase">
+                                {t('dashboard.roles', 'People by role')}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(metrics.roles ?? {}).map(
+                                    ([role, count]) => (
+                                        <span
+                                            key={role}
+                                            className="bg-thh-bg border-thh-border rounded-full border px-3 py-1 text-xs font-semibold"
+                                        >
+                                            {role.replace('_', ' ')}{' '}
+                                            <span className="text-thh-secondary font-mono">
+                                                {count}
+                                            </span>
+                                        </span>
+                                    ),
+                                )}
+                            </div>
+                        </div>
+                        <div className="bg-thh-surface border-thh-border space-y-3 rounded-2xl border p-5">
+                            <h3 className="text-thh-text text-sm font-bold tracking-wider uppercase">
+                                {t('dashboard.queue_split', 'Open queue')}
+                            </h3>
+                            <dl className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <dt className="text-thh-text-muted text-xs uppercase">
+                                        Assigned
+                                    </dt>
+                                    <dd className="text-xl font-black">
+                                        {metrics.assigned ?? 0}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-thh-text-muted text-xs uppercase">
+                                        Unassigned
+                                    </dt>
+                                    <dd className="text-xl font-black">
+                                        {metrics.unassigned ?? 0}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-thh-text-muted text-xs uppercase">
+                                        Urgent
+                                    </dt>
+                                    <dd className="text-xl font-black text-rose-600">
+                                        {metrics.urgency?.urgent ?? 0}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-thh-text-muted text-xs uppercase">
+                                        Medium / low
+                                    </dt>
+                                    <dd className="text-xl font-black">
+                                        {(metrics.urgency?.medium ?? 0) +
+                                            (metrics.urgency?.low ?? 0)}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                )}
 
                 {/* Bottom Row: Category & District Breakdown */}
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
