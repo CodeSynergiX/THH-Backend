@@ -32,11 +32,17 @@ class Taluka extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * @return BelongsTo<District, $this>
+     */
     public function district(): BelongsTo
     {
         return $this->belongsTo(District::class);
     }
 
+    /**
+     * @return HasMany<Village, $this>
+     */
     public function villages(): HasMany
     {
         return $this->hasMany(Village::class);

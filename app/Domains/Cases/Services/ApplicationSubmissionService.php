@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
@@ -104,6 +105,31 @@ class ApplicationSubmissionService
 
         if (! empty($input['documents']) && is_array($input['documents'])) {
             foreach ($input['documents'] as $doc) {
+                if (! empty($doc['base64'])) {
+                    $raw = $doc['base64'];
+                    $ext = 'jpg';
+                    if (preg_match('/^data:([^;]+);base64,/', $raw, $m)) {
+                        $mime = $m[1];
+                        $raw = substr($raw, strpos($raw, ',') + 1);
+                        $ext = explode('/', $mime)[1] ?? 'jpg';
+                    } elseif (! empty($doc['name']) && pathinfo($doc['name'], PATHINFO_EXTENSION)) {
+                        $ext = pathinfo($doc['name'], PATHINFO_EXTENSION);
+                    }
+                    $decoded = base64_decode($raw, true);
+                    if ($decoded !== false) {
+                        $docFileName = 'doc_'.time().'_'.uniqid().'.'.$ext;
+                        $storedPath = "applications/{$application->id}/{$docFileName}";
+                        Storage::disk('public')->put($storedPath, $decoded);
+                        $application->documents()->create([
+                            'type' => $doc['type'] ?? 'general_doc',
+                            'path' => $storedPath,
+                            'status' => 'pending',
+                        ]);
+
+                        continue;
+                    }
+                }
+
                 if (! empty($doc['path']) || ! empty($doc['name'])) {
                     $application->documents()->create([
                         'type' => $doc['type'] ?? 'general_doc',

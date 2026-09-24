@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CaseController;
 use App\Http\Controllers\Admin\ContentModuleController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LocalizationController;
+use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\NotificationInboxController;
 use App\Http\Controllers\Admin\PeopleController;
 use App\Http\Controllers\Admin\SettingsController;
@@ -136,6 +137,17 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         Route::get('/localization/scan-missing', [LocalizationController::class, 'scanMissing'])->name('localization.scan-missing');
         Route::get('/localization/export/json/{locale}', [LocalizationController::class, 'exportJson'])->name('localization.export.json');
         Route::get('/localization/export/csv', [LocalizationController::class, 'exportCsv'])->name('localization.export.csv');
+    });
+
+    Route::middleware('permission:settings.manage')->group(function () {
+        Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
+        Route::post('/locations/district', [LocationController::class, 'storeDistrict'])->name('locations.district.store');
+        Route::put('/locations/district/{id}', [LocationController::class, 'updateDistrict'])->name('locations.district.update');
+        Route::post('/locations/taluka', [LocationController::class, 'storeTaluka'])->name('locations.taluka.store');
+        Route::put('/locations/taluka/{id}', [LocationController::class, 'updateTaluka'])->name('locations.taluka.update');
+        Route::post('/locations/village', [LocationController::class, 'storeVillage'])->name('locations.village.store');
+        Route::put('/locations/village/{id}', [LocationController::class, 'updateVillage'])->name('locations.village.update');
+        Route::post('/locations/toggle/{type}/{id}', [LocationController::class, 'toggleActive'])->name('locations.toggle');
     });
 
     Route::get('/settings', [SettingsController::class, 'index'])

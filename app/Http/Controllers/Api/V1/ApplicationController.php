@@ -21,6 +21,7 @@ use App\Domains\Users\Services\OtpService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ApplicationController extends Controller
 {
@@ -219,6 +220,74 @@ class ApplicationController extends Controller
             'message' => 'Document uploaded successfully.',
             'data' => new ApplicationDocumentResource($doc),
         ], 201);
+    }
+
+    /**
+     * Upload an application document or image (multipart or base64).
+     */
+    public function uploadFile(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['nullable', 'file', 'max:10240'],
+            'file_base64' => ['nullable', 'string'],
+            'file_name' => ['nullable', 'string', 'max:255'],
+            'type' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $url = null;
+        $path = null;
+        $name = 'upload_'.time();
+        $mime = 'image/jpeg';
+        $size = 0;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $name = $file->getClientOriginalName();
+            $mime = $file->getClientMimeType();
+            $size = $file->getSize();
+            $path = $file->store('uploads', 'public');
+            $url = asset('storage/'.$path);
+        } elseif ($request->filled('file_base64')) {
+            $raw = $request->input('file_base64');
+            $ext = 'jpg';
+            if (preg_match('/^data:([^;]+);base64,/', $raw, $matches)) {
+                $mime = $matches[1];
+                $raw = substr($raw, strpos($raw, ',') + 1);
+                $ext = explode('/', $mime)[1] ?? 'jpg';
+                if ($ext === 'jpeg') {
+                    $ext = 'jpg';
+                }
+            }
+            $decoded = base64_decode($raw, true);
+            if ($decoded === false) {
+                return response()->json(['success' => false, 'message' => 'Invalid base64 file data.'], 422);
+            }
+            $origName = $request->input('file_name');
+            $fileName = 'upload_'.time().'_'.uniqid().'.'.$ext;
+            if ($origName) {
+                $name = $origName;
+            } else {
+                $name = $fileName;
+            }
+            $path = 'uploads/'.$fileName;
+            Storage::disk('public')->put($path, $decoded);
+            $url = asset('storage/'.$path);
+            $size = strlen($decoded);
+        } else {
+            return response()->json(['success' => false, 'message' => 'No file provided.'], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'File uploaded successfully.',
+            'data' => [
+                'path' => $path,
+                'url' => $url,
+                'name' => $name,
+                'size' => $size,
+                'mime_type' => $mime,
+            ],
+        ]);
     }
 
     /**

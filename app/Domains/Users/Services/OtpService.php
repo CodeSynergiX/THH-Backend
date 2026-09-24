@@ -41,7 +41,7 @@ class OtpService
             $foundUser = User::query()
                 ->where('email', $email)
                 ->first();
-            if ($foundUser && $foundUser->phone) {
+            if ($foundUser && $foundUser->phone && ! str_contains($foundUser->phone, '@')) {
                 $phone = trim($foundUser->phone);
             }
         }
@@ -67,7 +67,7 @@ class OtpService
         return $code;
     }
 
-    public function verify(?string $phone, ?string $email, string $code, string|array|null $purpose = null): bool
+    public function verify(?string $phone, ?string $email, string $code, string|array|null $purpose = null, bool $deleteOnSuccess = true): bool
     {
         $code = trim($code);
         if ($email) {
@@ -96,7 +96,7 @@ class OtpService
             $foundUser = User::query()
                 ->where('email', $email)
                 ->first();
-            if ($foundUser && $foundUser->phone) {
+            if ($foundUser && $foundUser->phone && ! str_contains($foundUser->phone, '@')) {
                 $phone = trim($foundUser->phone);
             }
         }
@@ -143,7 +143,9 @@ class OtpService
 
         foreach ($records as $record) {
             if (Hash::check($code, $record->code_hash)) {
-                $record->delete();
+                if ($deleteOnSuccess) {
+                    $record->delete();
+                }
 
                 return true;
             }

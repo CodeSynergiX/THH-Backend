@@ -30,9 +30,13 @@ Route::prefix('v1')->group(function () {
     // Public Master Data & Tracking
     Route::get('/categories', [ConfigController::class, 'categories']);
     Route::get('/districts', [ConfigController::class, 'districts']);
+    Route::get('/talukas', [ConfigController::class, 'talukas']);
+    Route::get('/villages', [ConfigController::class, 'villages']);
+    Route::get('/locations/nearest', [ConfigController::class, 'nearestLocation']);
     Route::get('/applications/track/{caseNo}', [ApplicationController::class, 'track']);
     Route::post('/applications/track/otp', [ApplicationController::class, 'requestTrackOtp']);
     Route::post('/applications', [ApplicationController::class, 'store']);
+    Route::post('/uploads', [ApplicationController::class, 'uploadFile']);
 
     // ==========================================
     // 2. AUTHENTICATION (OTP FLOW)

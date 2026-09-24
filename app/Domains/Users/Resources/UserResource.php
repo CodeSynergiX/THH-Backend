@@ -59,6 +59,8 @@ class UserResource extends JsonResource
             ] : null,
             'roles' => $this->getRoleNames(),
             'scope' => $this->getEffectiveScope(),
+            'email_verified' => (bool) $this->email_verified_at,
+            'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

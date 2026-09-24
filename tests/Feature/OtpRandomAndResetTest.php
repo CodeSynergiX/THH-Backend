@@ -107,3 +107,27 @@ test('reset password with phone number and random otp works with variations', fu
     ]);
     $loginResponse->assertOk()->assertJsonPath('success', true);
 });
+
+test('forgot password otp request succeeds with email only when user has no phone', function () {
+    $user = User::factory()->create([
+        'email' => 'email_only_forgot@ggvt.org',
+        'phone' => null,
+        'password' => 'OldPassword123!',
+    ]);
+
+    $response = $this->postJson('/api/v1/auth/otp/request', [
+        'email' => 'email_only_forgot@ggvt.org',
+        'purpose' => 'reset',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('success', true);
+
+    $otp = OtpCode::where('email', 'email_only_forgot@ggvt.org')
+        ->where('purpose', 'reset')
+        ->latest()
+        ->first();
+
+    expect($otp)->not->toBeNull();
+    expect($otp->phone)->toBeNull();
+});

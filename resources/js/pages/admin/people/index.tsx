@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import { Check, Plus, Search, Users, X } from 'lucide-react';
+import { Check, Plus, Search, Users, X, Edit2 } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import { useTranslation } from '../../../lib/i18n';
 
@@ -16,10 +16,13 @@ interface PersonItem {
     gender?: string | null;
     date_of_birth?: string | null;
     blood_group?: string | null;
+    district_id?: number | null;
+    taluka_id?: number | null;
+    village_id?: number | null;
     roles: Array<{ id: number; name: string }>;
-    district?: { name_en: string };
-    taluka?: { name_en: string };
-    village?: { name_en: string };
+    district?: { id?: number; name_en: string };
+    taluka?: { id?: number; name_en: string };
+    village?: { id?: number; name_en: string };
     applications_count?: number;
     assigned_applications_count?: number;
 }
@@ -97,6 +100,66 @@ export default function PeopleIndex({
         blood_group: '',
     });
 
+    // Edit Member Modal
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingPerson, setEditingPerson] = useState<PersonItem | null>(null);
+    const {
+        data: editData,
+        setData: setEditData,
+        put: putEdit,
+        processing: editProcessing,
+        reset: resetEdit,
+    } = useForm({
+        first_name: '',
+        last_name: '',
+        role: 'staff',
+        district_id: '',
+        taluka_id: '',
+        village_id: '',
+        gender: '',
+        date_of_birth: '',
+        blood_group: '',
+    });
+
+    const openEditModal = (p: PersonItem) => {
+        setEditingPerson(p);
+        setEditData({
+            first_name: p.first_name || '',
+            last_name: p.last_name || '',
+            role: p.roles?.[0]?.name || 'staff',
+            district_id: p.district_id
+                ? String(p.district_id)
+                : p.district?.id
+                    ? String(p.district.id)
+                    : '',
+            taluka_id: p.taluka_id
+                ? String(p.taluka_id)
+                : p.taluka?.id
+                    ? String(p.taluka.id)
+                    : '',
+            village_id: p.village_id
+                ? String(p.village_id)
+                : p.village?.id
+                    ? String(p.village.id)
+                    : '',
+            gender: p.gender || '',
+            date_of_birth: p.date_of_birth || '',
+            blood_group: p.blood_group || '',
+        });
+        setShowEditModal(true);
+    };
+
+    const handleUpdateMember = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPerson) return;
+        putEdit(`/admin/people/${editingPerson.id}`, {
+            onSuccess: () => {
+                setShowEditModal(false);
+                resetEdit();
+            },
+        });
+    };
+
     const handleFilter = (newParams: {
         role?: string;
         search?: string;
@@ -146,12 +209,12 @@ export default function PeopleIndex({
     };
 
     const rolesList = [
-        { key: 'staff', label: 'Field Staff' },
+        { key: 'admin', label: 'Administrators' },
         { key: 'citizen', label: 'Citizens' },
         { key: 'mentor', label: 'Mentors' },
+        { key: 'staff', label: 'Field Staff' },
         { key: 'partner', label: 'Partners' },
         { key: 'volunteer', label: 'Volunteers' },
-        { key: 'admin', label: 'Administrators' },
     ];
 
     return (
@@ -175,22 +238,20 @@ export default function PeopleIndex({
                             <button
                                 type="button"
                                 onClick={() => setActiveView('directory')}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                    activeView === 'directory'
-                                        ? 'bg-thh-primary text-white shadow-2xs'
-                                        : 'text-thh-text-muted hover:text-thh-text'
-                                }`}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeView === 'directory'
+                                    ? 'bg-thh-primary text-white shadow-2xs'
+                                    : 'text-thh-text-muted hover:text-thh-text'
+                                    }`}
                             >
                                 Directory
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveView('matrix')}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                    activeView === 'matrix'
-                                        ? 'bg-thh-primary text-white shadow-2xs'
-                                        : 'text-thh-text-muted hover:text-thh-text'
-                                }`}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeView === 'matrix'
+                                    ? 'bg-thh-primary text-white shadow-2xs'
+                                    : 'text-thh-text-muted hover:text-thh-text'
+                                    }`}
                             >
                                 Roles & Permissions
                             </button>
@@ -219,11 +280,10 @@ export default function PeopleIndex({
                                         setSelectedRole(r.key);
                                         handleFilter({ role: r.key });
                                     }}
-                                    className={`rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
-                                        selectedRole === r.key
-                                            ? 'bg-thh-surface border-thh-primary text-thh-primary ring-thh-primary shadow-2xs ring-1'
-                                            : 'bg-thh-surface border-thh-border text-thh-text-muted hover:text-thh-text'
-                                    }`}
+                                    className={`rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${selectedRole === r.key
+                                        ? 'bg-thh-surface border-thh-primary text-thh-primary ring-thh-primary shadow-2xs ring-1'
+                                        : 'bg-thh-surface border-thh-border text-thh-text-muted hover:text-thh-text'
+                                        }`}
                                 >
                                     {r.label}
                                 </button>
@@ -313,11 +373,54 @@ export default function PeopleIndex({
                                                     <td className="text-thh-text-muted px-4 py-3.5">
                                                         {p.email}
                                                     </td>
-                                                    <td className="text-thh-text px-4 py-3.5">
-                                                        {p.village?.name_en ||
-                                                            p.district
-                                                                ?.name_en ||
-                                                            'State / All'}
+                                                    <td className="text-thh-text px-4 py-3.5 text-xs">
+                                                        {p.village?.name_en ? (
+                                                            <div>
+                                                                <span className="block font-semibold">
+                                                                    {
+                                                                        p
+                                                                            .village
+                                                                            .name_en
+                                                                    }
+                                                                </span>
+                                                                <span className="text-thh-text-muted text-[11px]">
+                                                                    {p.taluka
+                                                                        ?.name_en ||
+                                                                        ''}{' '}
+                                                                    •{' '}
+                                                                    {p.district
+                                                                        ?.name_en ||
+                                                                        ''}
+                                                                </span>
+                                                            </div>
+                                                        ) : p.taluka
+                                                            ?.name_en ? (
+                                                            <div>
+                                                                <span className="block font-semibold">
+                                                                    {
+                                                                        p.taluka
+                                                                            .name_en
+                                                                    }
+                                                                </span>
+                                                                <span className="text-thh-text-muted text-[11px]">
+                                                                    {p.district
+                                                                        ?.name_en ||
+                                                                        ''}
+                                                                </span>
+                                                            </div>
+                                                        ) : p.district
+                                                            ?.name_en ? (
+                                                            <span className="font-semibold">
+                                                                {
+                                                                    p.district
+                                                                        .name_en
+                                                                }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-thh-text-muted italic">
+                                                                Statewide / All
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="text-thh-primary px-4 py-3.5 font-mono font-bold">
                                                         {p.assigned_applications_count ||
@@ -326,11 +429,10 @@ export default function PeopleIndex({
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <span
-                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                                                p.is_active
-                                                                    ? 'bg-emerald-500/10 text-emerald-600'
-                                                                    : 'bg-rose-500/10 text-rose-600'
-                                                            }`}
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${p.is_active
+                                                                ? 'bg-emerald-500/10 text-emerald-600'
+                                                                : 'bg-rose-500/10 text-rose-600'
+                                                                }`}
                                                         >
                                                             {p.is_active
                                                                 ? 'Active'
@@ -339,18 +441,17 @@ export default function PeopleIndex({
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <span
-                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                                                p.helper_status ===
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${p.helper_status ===
                                                                 'approved'
-                                                                    ? 'bg-emerald-500/10 text-emerald-700'
+                                                                ? 'bg-emerald-500/10 text-emerald-700'
+                                                                : p.helper_status ===
+                                                                    'rejected'
+                                                                    ? 'bg-rose-500/10 text-rose-600'
                                                                     : p.helper_status ===
-                                                                        'rejected'
-                                                                      ? 'bg-rose-500/10 text-rose-600'
-                                                                      : p.helper_status ===
-                                                                          'pending'
+                                                                        'pending'
                                                                         ? 'bg-amber-500/10 text-amber-700'
                                                                         : 'text-thh-text-muted'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             {p.helper_status ||
                                                                 '—'}
@@ -358,48 +459,67 @@ export default function PeopleIndex({
                                                     </td>
                                                     <td className="px-4 py-3.5 text-right">
                                                         <div className="flex flex-col items-end gap-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openEditModal(
+                                                                            p,
+                                                                        )
+                                                                    }
+                                                                    className="text-thh-primary flex items-center gap-1 text-xs font-semibold hover:underline"
+                                                                >
+                                                                    <Edit2 className="h-3 w-3" />
+                                                                    <span>
+                                                                        Edit
+                                                                    </span>
+                                                                </button>
+                                                                <span className="text-thh-border">
+                                                                    |
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handleToggleActive(
+                                                                            p.id,
+                                                                        )
+                                                                    }
+                                                                    className="text-thh-text-muted hover:text-thh-text text-xs font-semibold"
+                                                                >
+                                                                    {p.is_active
+                                                                        ? 'Disable'
+                                                                        : 'Enable'}
+                                                                </button>
+                                                            </div>
                                                             {p.helper_status ===
                                                                 'pending' && (
-                                                                <div className="flex gap-1">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            handleHelperStatus(
-                                                                                p.id,
-                                                                                'approved',
-                                                                            )
-                                                                        }
-                                                                        className="text-[11px] font-bold text-emerald-700"
-                                                                    >
-                                                                        Approve
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            handleHelperStatus(
-                                                                                p.id,
-                                                                                'rejected',
-                                                                            )
-                                                                        }
-                                                                        className="text-[11px] font-bold text-rose-600"
-                                                                    >
-                                                                        Reject
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    handleToggleActive(
-                                                                        p.id,
-                                                                    )
-                                                                }
-                                                                className="text-thh-text-muted hover:text-thh-primary text-xs font-semibold"
-                                                            >
-                                                                {p.is_active
-                                                                    ? 'Disable'
-                                                                    : 'Enable'}
-                                                            </button>
+                                                                    <div className="mt-0.5 flex gap-1.5">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                handleHelperStatus(
+                                                                                    p.id,
+                                                                                    'approved',
+                                                                                )
+                                                                            }
+                                                                            className="text-[11px] font-bold text-emerald-700"
+                                                                        >
+                                                                            Approve
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                handleHelperStatus(
+                                                                                    p.id,
+                                                                                    'rejected',
+                                                                                )
+                                                                            }
+                                                                            className="text-[11px] font-bold text-rose-600"
+                                                                        >
+                                                                            Reject
+                                                                        </button>
+                                                                    </div>
+                                                                )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -469,8 +589,8 @@ export default function PeopleIndex({
                                                                 locked
                                                                     ? 'Super admin cannot be changed'
                                                                     : has
-                                                                      ? `Revoke ${perm.name}`
-                                                                      : `Grant ${perm.name}`
+                                                                        ? `Revoke ${perm.name}`
+                                                                        : `Grant ${perm.name}`
                                                             }
                                                             onClick={() =>
                                                                 router.post(
@@ -488,13 +608,12 @@ export default function PeopleIndex({
                                                                     },
                                                                 )
                                                             }
-                                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                                                                locked
-                                                                    ? 'cursor-not-allowed bg-emerald-500/15 text-emerald-600'
-                                                                    : has
-                                                                      ? 'bg-emerald-500/15 text-emerald-600 hover:bg-rose-500/15 hover:text-rose-600'
-                                                                      : 'text-thh-border hover:bg-thh-bg hover:text-thh-text'
-                                                            }`}
+                                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${locked
+                                                                ? 'cursor-not-allowed bg-emerald-500/15 text-emerald-600'
+                                                                : has
+                                                                    ? 'bg-emerald-500/15 text-emerald-600 hover:bg-rose-500/15 hover:text-rose-600'
+                                                                    : 'text-thh-border hover:bg-thh-bg hover:text-thh-text'
+                                                                }`}
                                                         >
                                                             {has ? (
                                                                 <Check className="h-3.5 w-3.5" />
@@ -695,29 +814,96 @@ export default function PeopleIndex({
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="text-thh-text mb-1 block font-bold">
-                                    Assigned Geographic Scope (District)
-                                </label>
-                                <select
-                                    value={addData.district_id}
-                                    onChange={(e) =>
-                                        setAddData(
-                                            'district_id',
-                                            e.target.value,
-                                        )
-                                    }
-                                    className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
-                                >
-                                    <option value="">
-                                        All Districts (Unrestricted)
-                                    </option>
-                                    {districts.map((d) => (
-                                        <option key={d.id} value={d.id}>
-                                            {d.name_en} ({d.name_gu})
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        District Scope
+                                    </label>
+                                    <select
+                                        value={addData.district_id}
+                                        onChange={(e) => {
+                                            const dId = e.target.value;
+                                            setAddData('district_id', dId);
+                                            setAddData('taluka_id', '');
+                                            setAddData('village_id', '');
+                                        }}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    >
+                                        <option value="">All Districts</option>
+                                        {districts.map((d) => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.name_en} ({d.name_gu})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Taluka Scope
+                                    </label>
+                                    <select
+                                        value={addData.taluka_id}
+                                        onChange={(e) => {
+                                            const tId = e.target.value;
+                                            setAddData('taluka_id', tId);
+                                            setAddData('village_id', '');
+                                        }}
+                                        disabled={!addData.district_id}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2 disabled:opacity-50"
+                                    >
+                                        <option value="">All Talukas</option>
+                                        {(
+                                            districts.find(
+                                                (d) =>
+                                                    String(d.id) ===
+                                                    String(addData.district_id),
+                                            )?.talukas || []
+                                        ).map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name_en}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Village / City
+                                    </label>
+                                    <select
+                                        value={addData.village_id}
+                                        onChange={(e) =>
+                                            setAddData(
+                                                'village_id',
+                                                e.target.value,
+                                            )
+                                        }
+                                        disabled={!addData.taluka_id}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2 disabled:opacity-50"
+                                    >
+                                        <option value="">All Villages</option>
+                                        {(
+                                            (
+                                                districts.find(
+                                                    (d) =>
+                                                        String(d.id) ===
+                                                        String(
+                                                            addData.district_id,
+                                                        ),
+                                                )?.talukas || []
+                                            ).find(
+                                                (t) =>
+                                                    String(t.id) ===
+                                                    String(addData.taluka_id),
+                                            )?.villages || []
+                                        ).map((v) => (
+                                            <option key={v.id} value={v.id}>
+                                                {v.name_en}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -737,6 +923,268 @@ export default function PeopleIndex({
                                 {addProcessing
                                     ? 'Creating...'
                                     : 'Create Member'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Edit Team Member Modal */}
+            {showEditModal && editingPerson && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+                    <form
+                        onSubmit={handleUpdateMember}
+                        className="bg-thh-surface border-thh-border w-full max-w-lg space-y-4 rounded-2xl border p-6 shadow-xl"
+                    >
+                        <div className="border-thh-border flex items-center justify-between border-b pb-3">
+                            <div>
+                                <h3 className="text-thh-text text-base font-bold">
+                                    Edit Member Profile & Scope
+                                </h3>
+                                <p className="text-thh-text-muted text-xs">
+                                    {editingPerson.name} (
+                                    {editingPerson.phone || editingPerson.email}
+                                    )
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowEditModal(false)}
+                                className="text-thh-text-muted hover:text-thh-text p-1"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        First name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editData.first_name}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'first_name',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Last name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editData.last_name}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'last_name',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Gender
+                                    </label>
+                                    <select
+                                        value={editData.gender}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'gender',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    >
+                                        <option value="">—</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Birth date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editData.date_of_birth}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'date_of_birth',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Blood group
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editData.blood_group}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'blood_group',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="B+"
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-thh-text mb-1 block font-bold">
+                                    Role Assignment
+                                </label>
+                                <select
+                                    value={editData.role}
+                                    onChange={(e) =>
+                                        setEditData('role', e.target.value)
+                                    }
+                                    className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2 font-bold"
+                                >
+                                    <option value="staff">
+                                        Field Staff (Tribal Coordinator)
+                                    </option>
+                                    <option value="admin">Administrator</option>
+                                    <option value="mentor">
+                                        Education/Career Mentor
+                                    </option>
+                                    <option value="partner">
+                                        Partner Organization
+                                    </option>
+                                    <option value="volunteer">Volunteer</option>
+                                    <option value="citizen">Citizen</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        District
+                                    </label>
+                                    <select
+                                        value={editData.district_id}
+                                        onChange={(e) => {
+                                            const dId = e.target.value;
+                                            setEditData('district_id', dId);
+                                            setEditData('taluka_id', '');
+                                            setEditData('village_id', '');
+                                        }}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2"
+                                    >
+                                        <option value="">
+                                            All / Unrestricted
+                                        </option>
+                                        {districts.map((d) => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.name_en} ({d.name_gu})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Taluka
+                                    </label>
+                                    <select
+                                        value={editData.taluka_id}
+                                        onChange={(e) => {
+                                            const tId = e.target.value;
+                                            setEditData('taluka_id', tId);
+                                            setEditData('village_id', '');
+                                        }}
+                                        disabled={!editData.district_id}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2 disabled:opacity-50"
+                                    >
+                                        <option value="">All Talukas</option>
+                                        {(
+                                            districts.find(
+                                                (d) =>
+                                                    String(d.id) ===
+                                                    String(
+                                                        editData.district_id,
+                                                    ),
+                                            )?.talukas || []
+                                        ).map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name_en}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-thh-text mb-1 block font-bold">
+                                        Village / City
+                                    </label>
+                                    <select
+                                        value={editData.village_id}
+                                        onChange={(e) =>
+                                            setEditData(
+                                                'village_id',
+                                                e.target.value,
+                                            )
+                                        }
+                                        disabled={!editData.taluka_id}
+                                        className="border-thh-border bg-thh-bg text-thh-text w-full rounded-lg border px-3 py-2 disabled:opacity-50"
+                                    >
+                                        <option value="">All Villages</option>
+                                        {(
+                                            (
+                                                districts.find(
+                                                    (d) =>
+                                                        String(d.id) ===
+                                                        String(
+                                                            editData.district_id,
+                                                        ),
+                                                )?.talukas || []
+                                            ).find(
+                                                (t) =>
+                                                    String(t.id) ===
+                                                    String(editData.taluka_id),
+                                            )?.villages || []
+                                        ).map((v) => (
+                                            <option key={v.id} value={v.id}>
+                                                {v.name_en}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-thh-border flex justify-end gap-3 border-t pt-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowEditModal(false)}
+                                className="border-thh-border text-thh-text rounded-lg border px-4 py-2 text-xs font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={editProcessing}
+                                className="bg-thh-primary rounded-lg px-4 py-2 text-xs font-bold text-white shadow-xs hover:opacity-95"
+                            >
+                                {editProcessing ? 'Saving...' : 'Save Changes'}
                             </button>
                         </div>
                     </form>

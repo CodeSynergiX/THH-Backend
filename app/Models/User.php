@@ -42,6 +42,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $taluka_id
  * @property int|null $village_id
  * @property bool $is_active
+ * @property CarbonInterface|null $email_verified_at
+ * @property CarbonInterface|null $consent_at
+ * @property CarbonInterface|null $last_login_at
  * @property CarbonInterface|null $created_at
  * @property CarbonInterface|null $updated_at
  * @property CarbonInterface|null $deleted_at

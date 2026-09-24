@@ -36,6 +36,9 @@ class StoreApplicationRequest extends FormRequest
             'documents.*.type' => ['nullable', 'string', 'max:100'],
             'documents.*.path' => ['nullable', 'string', 'max:500'],
             'documents.*.name' => ['nullable', 'string', 'max:255'],
+            'documents.*.base64' => ['nullable', 'string'],
+            'documents.*.size' => ['nullable', 'string', 'max:50'],
+            'documents.*.uri' => ['nullable', 'string'],
         ];
     }
 }

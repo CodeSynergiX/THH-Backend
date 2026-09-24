@@ -23,6 +23,7 @@ import {
     ExternalLink,
     Mail,
     Phone,
+    MapPin,
 } from 'lucide-react';
 import { useTranslation } from '../lib/i18n';
 
@@ -122,6 +123,13 @@ export default function AdminLayout({ title, children }: AdminLayoutProps) {
                     icon: Users,
                     active: url.startsWith('/admin/people'),
                     permission: 'people.view',
+                },
+                {
+                    href: '/admin/locations',
+                    label: t('nav.locations', 'Locations & Master Data'),
+                    icon: MapPin,
+                    active: url.startsWith('/admin/locations'),
+                    permission: 'settings.manage',
                 },
             ],
         },

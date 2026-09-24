@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domains\Content\Models\Volunteer;
 use App\Domains\Settings\Services\MailSettingsService;
 use App\Domains\Users\Models\DeviceToken;
 use App\Domains\Users\Resources\UserResource;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -40,17 +42,22 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $phone = $validated['phone'] ?? null;
-        $email = $validated['email'] ?? null;
+        $phoneInput = $validated['phone'] ?? null;
+        $emailInput = $validated['email'] ?? null;
 
-        if (! $email && filter_var($input, FILTER_VALIDATE_EMAIL)) {
-            $email = $input;
-        } elseif (! $phone) {
-            $phone = $input;
+        $email = null;
+        if ($emailInput && filter_var($emailInput, FILTER_VALIDATE_EMAIL)) {
+            $email = strtolower(trim($emailInput));
+        } elseif (filter_var($input, FILTER_VALIDATE_EMAIL)) {
+            $email = strtolower(trim($input));
         }
 
-        $email = $email ? strtolower(trim($email)) : null;
-        $phone = $phone ? trim($phone) : null;
+        $phone = null;
+        if ($phoneInput && ! str_contains($phoneInput, '@') && ! filter_var($phoneInput, FILTER_VALIDATE_EMAIL)) {
+            $phone = trim($phoneInput);
+        } elseif (! str_contains($input, '@') && ! filter_var($input, FILTER_VALIDATE_EMAIL)) {
+            $phone = trim($input);
+        }
 
         // If phone is provided and email is not, check if a registered user exists with an email
         if (! $email && $phone) {
@@ -104,21 +111,29 @@ class AuthController extends Controller
         ]);
 
         $input = $validated['email'] ?? $validated['phone'] ?? $validated['identifier'] ?? null;
-        $phone = $validated['phone'] ?? null;
-        $email = $validated['email'] ?? null;
+        $phoneInput = $validated['phone'] ?? null;
+        $emailInput = $validated['email'] ?? null;
 
-        if (! $email && filter_var($input, FILTER_VALIDATE_EMAIL)) {
-            $email = $input;
-        } elseif (! $phone) {
-            $phone = $input;
+        $email = null;
+        if ($emailInput && filter_var($emailInput, FILTER_VALIDATE_EMAIL)) {
+            $email = strtolower(trim($emailInput));
+        } elseif ($input && filter_var($input, FILTER_VALIDATE_EMAIL)) {
+            $email = strtolower(trim($input));
         }
 
-        $email = $email ? strtolower(trim($email)) : null;
-        $phone = $phone ? trim($phone) : null;
+        $phone = null;
+        if ($phoneInput && ! str_contains($phoneInput, '@') && ! filter_var($phoneInput, FILTER_VALIDATE_EMAIL)) {
+            $phone = trim($phoneInput);
+        } elseif ($input && ! str_contains($input, '@') && ! filter_var($input, FILTER_VALIDATE_EMAIL)) {
+            $phone = trim($input);
+        }
 
         $code = trim($validated['code']);
 
-        if (! $this->otp->verify($phone, $email, $code, $validated['purpose'] ?? null)) {
+        $isResetPurpose = in_array($validated['purpose'] ?? null, ['reset', 'password_reset']);
+        $isRegisterPurpose = ($validated['purpose'] ?? null) === 'register';
+
+        if (! $this->otp->verify($phone, $email, $code, $validated['purpose'] ?? null, ! $isResetPurpose)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP code.',
@@ -126,9 +141,16 @@ class AuthController extends Controller
             ], 422);
         }
 
+        if ($isRegisterPurpose) {
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP verified successfully.',
+            ]);
+        }
+
         $user = null;
         if ($email) {
-            $user = User::query()->where('email', $email)->first();
+            $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         }
         if (! $user && $phone) {
             $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
@@ -137,20 +159,51 @@ class AuthController extends Controller
                 ->when(strlen($cleanPhone) >= 10, function ($q) use ($cleanPhone) {
                     $last10 = substr($cleanPhone, -10);
                     $q->orWhere('phone', $last10)
-                        ->orWhere('phone', '+91'.$last10);
+                        ->orWhere('phone', '+91'.$last10)
+                        ->orWhere('phone', '0'.$last10);
                 })
                 ->first();
         }
 
         if (! $user) {
-            $user = User::create([
-                'phone' => $phone,
+            $emailPrefix = $email ? explode('@', $email)[0] : 'Citizen';
+            $firstName = ! empty($validated['name']) ? trim($validated['name']) : $emailPrefix;
+
+            // Ensure phone is never set to an email address; only assign if valid phone number
+            $userPhone = null;
+            if ($phone && ! str_contains($phone, '@')) {
+                $cleanPhoneDigits = preg_replace('/[^0-9]/', '', $phone);
+                if (strlen($cleanPhoneDigits) >= 10) {
+                    $userPhone = $phone;
+                }
+            }
+
+            $user = new User([
+                'phone' => $userPhone,
                 'email' => $email,
-                'name' => $validated['name'] ?? ($email ? explode('@', $email)[0] : 'Citizen'),
+                'first_name' => $firstName,
+                'last_name' => null,
+                'name' => $firstName,
                 'locale' => 'gu',
                 'is_active' => true,
                 'last_login_at' => now(),
             ]);
+            $user->syncDisplayName($firstName);
+            $user->save();
+        } else {
+            // Clean up any legacy corrupt state where phone stored an email
+            if ($user->phone && str_contains($user->phone, '@')) {
+                $user->phone = null;
+                $user->save();
+            }
+            if (empty($user->first_name) && $email) {
+                $emailPrefix = explode('@', $email)[0];
+                $user->first_name = $emailPrefix;
+                if (empty($user->name)) {
+                    $user->name = $emailPrefix;
+                }
+                $user->save();
+            }
         }
 
         if (! $user->hasAnyRole(['super_admin', 'admin', 'staff', 'mentor', 'volunteer', 'partner', 'citizen'])) {
@@ -402,24 +455,69 @@ class AuthController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\s\-()]{10,20}$/'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['nullable', 'in:citizen,mentor,volunteer'],
             'locale' => ['nullable', 'in:gu,en'],
             'district_id' => ['nullable', 'exists:districts,id'],
             'taluka_id' => ['nullable', 'exists:talukas,id'],
             'village_id' => ['nullable', 'exists:villages,id'],
+            'email_verified' => ['nullable', 'boolean'],
+            'domains' => ['nullable', 'array'],
+            'availability' => ['nullable', 'string', 'max:50'],
         ]);
+
+        // Validate clean 10-digit phone uniqueness
+        $cleanPhone = preg_replace('/[^0-9]/', '', $validated['phone']);
+        if (strlen($cleanPhone) < 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please enter a valid 10-digit mobile number.',
+                'errors' => ['phone' => ['Please enter a valid 10-digit mobile number.']],
+            ], 422);
+        }
+        $last10 = substr($cleanPhone, -10);
+        $existingPhoneUser = User::query()
+            ->where('phone', $validated['phone'])
+            ->orWhere('phone', $last10)
+            ->orWhere('phone', '+91'.$last10)
+            ->orWhere('phone', '0'.$last10)
+            ->orWhere('phone', 'LIKE', '%'.$last10)
+            ->first();
+        if ($existingPhoneUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This mobile number is already registered.',
+                'errors' => ['phone' => ['This mobile number is already registered.']],
+            ], 422);
+        }
+
+        // Validate normalized email uniqueness
+        if (! empty($validated['email'])) {
+            $normEmail = strtolower(trim($validated['email']));
+            $existingEmailUser = User::query()
+                ->whereRaw('LOWER(email) = ?', [$normEmail])
+                ->first();
+            if ($existingEmailUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This email address is already registered.',
+                    'errors' => ['email' => ['This email address is already registered.']],
+                ], 422);
+            }
+        }
 
         $role = $validated['role'] ?? 'citizen';
         $isSevak = in_array($role, ['mentor', 'volunteer'], true);
 
+        $cleanPhoneInput = trim($validated['phone']);
+
         $user = new User([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
+            'first_name' => trim($validated['first_name']),
+            'last_name' => trim($validated['last_name']),
+            'email' => ! empty($validated['email']) ? strtolower(trim($validated['email'])) : null,
+            'phone' => $cleanPhoneInput,
             'password' => $validated['password'],
             'locale' => $validated['locale'] ?? 'gu',
             'district_id' => $validated['district_id'] ?? null,
@@ -430,9 +528,23 @@ class AuthController extends Controller
             'on_duty' => false,
             'last_login_at' => now(),
         ]);
+        if ($request->boolean('email_verified')) {
+            $user->email_verified_at = now();
+        }
         $user->syncDisplayName($validated['first_name'], $validated['last_name']);
         $user->save();
         $user->assignRole($role);
+
+        if ($isSevak && ! empty($validated['domains'])) {
+            Volunteer::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'skills' => $validated['domains'],
+                    'availability' => $validated['availability'] ?? 'weekend',
+                    'hours_contributed' => 0,
+                ]
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -448,6 +560,26 @@ class AuthController extends Controller
 
     public function resetPassword(Request $request): JsonResponse
     {
+        $sanctumUser = $request->user('sanctum');
+        if (! $sanctumUser && $request->filled('token') && str_contains((string) $request->input('token'), '|')) {
+            $tokenModel = PersonalAccessToken::findToken($request->input('token'));
+            if ($tokenModel) {
+                $sanctumUser = $tokenModel->tokenable;
+            }
+        }
+
+        if ($sanctumUser && ! $request->filled('code')) {
+            $validated = $request->validate([
+                'password' => ['required', 'string', 'min:4', 'confirmed'],
+            ]);
+            $sanctumUser->forceFill(['password' => $validated['password']])->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully.',
+            ]);
+        }
+
         if ($request->filled('code')) {
             $validated = $request->validate([
                 'email' => ['nullable', 'email'],

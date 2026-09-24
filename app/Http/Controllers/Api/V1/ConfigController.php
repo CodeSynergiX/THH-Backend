@@ -12,6 +12,7 @@ use App\Domains\Settings\Models\ThemeVersion;
 use App\Domains\Settings\Models\Translation;
 use App\Domains\Settings\Resources\ThemeVersionResource;
 use App\Domains\Users\Models\District;
+use App\Domains\Users\Models\Taluka;
 use App\Domains\Users\Models\Village;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -241,6 +242,123 @@ class ConfigController extends Controller
         return response()->json([
             'success' => true,
             'data' => $districts,
+        ]);
+    }
+
+    public function nearestLocation(Request $request): JsonResponse
+    {
+        $lat = $request->query('lat');
+        $lng = $request->query('lng');
+
+        if (! is_numeric($lat) || ! is_numeric($lng)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Valid numeric lat and lng query parameters are required.',
+            ], 422);
+        }
+
+        $userLat = (float) $lat;
+        $userLng = (float) $lng;
+
+        $villages = Village::with(['taluka.district'])
+            ->where('is_active', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->get();
+
+        if ($villages->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No geo-referenced locations found in the database.',
+            ], 404);
+        }
+
+        $nearest = null;
+        $minDistance = INF;
+
+        foreach ($villages as $village) {
+            $vLat = (float) $village->lat;
+            $vLng = (float) $village->lng;
+
+            // Haversine calculation
+            $dLat = deg2rad($vLat - $userLat);
+            $dLon = deg2rad($vLng - $userLng);
+            $a = sin($dLat / 2) * sin($dLat / 2) +
+                 cos(deg2rad($userLat)) * cos(deg2rad($vLat)) *
+                 sin($dLon / 2) * sin($dLon / 2);
+            $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+            $distKm = 6371 * $c;
+
+            if ($distKm < $minDistance) {
+                $minDistance = $distKm;
+                $nearest = $village;
+            }
+        }
+
+        if (! $nearest) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not determine nearest location.',
+            ], 404);
+        }
+
+        $taluka = $nearest->taluka;
+        $district = $taluka?->district;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nearest village located successfully.',
+            'data' => [
+                'village' => [
+                    'id' => $nearest->id,
+                    'name_en' => $nearest->name_en,
+                    'name_gu' => $nearest->name_gu,
+                    'pincode' => $nearest->pincode,
+                    'lat' => (float) $nearest->lat,
+                    'lng' => (float) $nearest->lng,
+                ],
+                'taluka' => $taluka ? [
+                    'id' => $taluka->id,
+                    'name_en' => $taluka->name_en,
+                    'name_gu' => $taluka->name_gu,
+                    'code' => $taluka->code,
+                ] : null,
+                'district' => $district ? [
+                    'id' => $district->id,
+                    'name_en' => $district->name_en,
+                    'name_gu' => $district->name_gu,
+                    'code' => $district->code,
+                ] : null,
+                'distance_km' => round($minDistance, 2),
+            ],
+        ]);
+    }
+
+    public function talukas(Request $request): JsonResponse
+    {
+        $districtId = $request->query('district_id');
+        $query = Taluka::query()->where('is_active', true)->with('villages');
+        if ($districtId) {
+            $query->where('district_id', $districtId);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->get(),
+        ]);
+    }
+
+    public function villages(Request $request): JsonResponse
+    {
+        $talukaId = $request->query('taluka_id');
+        $query = Village::query()->where('is_active', true);
+        if ($talukaId) {
+            $query->where('taluka_id', $talukaId);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->get(),
         ]);
     }
 

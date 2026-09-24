@@ -182,16 +182,44 @@ class PeopleController extends Controller
             'gender' => ['nullable', 'in:male,female,other'],
             'date_of_birth' => ['nullable', 'date'],
             'blood_group' => ['nullable', 'string', 'max:8'],
+            'district_id' => ['nullable', 'exists:districts,id'],
+            'taluka_id' => ['nullable', 'exists:talukas,id'],
+            'village_id' => ['nullable', 'exists:villages,id'],
+            'role' => ['nullable', 'string', 'in:admin,staff,mentor,partner,volunteer,citizen'],
         ]);
 
-        $user->fill($validated);
+        $before = $user->only(['first_name', 'last_name', 'district_id', 'taluka_id', 'village_id']);
+
+        $user->fill([
+            'first_name' => $validated['first_name'] ?? $user->first_name,
+            'last_name' => $validated['last_name'] ?? $user->last_name,
+            'gender' => array_key_exists('gender', $validated) ? $validated['gender'] : $user->gender,
+            'date_of_birth' => array_key_exists('date_of_birth', $validated) ? $validated['date_of_birth'] : $user->date_of_birth,
+            'blood_group' => array_key_exists('blood_group', $validated) ? $validated['blood_group'] : $user->blood_group,
+            'district_id' => array_key_exists('district_id', $validated) ? $validated['district_id'] : $user->district_id,
+            'taluka_id' => array_key_exists('taluka_id', $validated) ? $validated['taluka_id'] : $user->taluka_id,
+            'village_id' => array_key_exists('village_id', $validated) ? $validated['village_id'] : $user->village_id,
+        ]);
+
         $user->syncDisplayName(
-            $validated['first_name'] ?? $user->first_name,
-            $validated['last_name'] ?? $user->last_name
+            $user->first_name,
+            $user->last_name
         );
         $user->save();
 
-        return back()->with('success', "Updated profile fields for {$user->name}.");
+        if (! empty($validated['role']) && ! $user->hasRole($validated['role'])) {
+            $user->syncRoles([$validated['role']]);
+        }
+
+        AuditLog::record(
+            action: 'people.update',
+            subject: $user,
+            before: $before,
+            after: $user->only(['first_name', 'last_name', 'district_id', 'taluka_id', 'village_id']),
+            actorId: $request->user()?->id
+        );
+
+        return back()->with('success', "Updated profile & jurisdiction for {$user->name}.");
     }
 
     /**
