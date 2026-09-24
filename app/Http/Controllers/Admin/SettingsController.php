@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Domains\Notifications\Models\NotificationTemplate;
 use App\Domains\Settings\Branding;
 use App\Domains\Settings\Models\Setting;
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -122,7 +122,7 @@ class SettingsController extends Controller
             Setting::set('smtp_password_encrypted', encrypt($validated['smtp_password']), 'smtp');
         }
 
-        \App\Domains\Settings\Services\MailSettingsService::clearCacheAndReapply();
+        MailSettingsService::clearCacheAndReapply();
 
         return back()->with('success', 'SMTP settings saved. Use the Test Email button to verify.');
     }
@@ -136,7 +136,7 @@ class SettingsController extends Controller
             'test_recipient' => ['required', 'email'],
         ]);
 
-        if (! \App\Domains\Settings\Services\MailSettingsService::apply()) {
+        if (! MailSettingsService::apply()) {
             return back()->with('error', 'SMTP is not configured. Please save SMTP settings first.');
         }
 

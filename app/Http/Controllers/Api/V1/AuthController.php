@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Domains\Users\Models\DeviceToken;
 use App\Domains\Users\Resources\UserResource;
 use App\Domains\Users\Services\OtpService;
@@ -386,7 +387,7 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        \App\Domains\Settings\Services\MailSettingsService::apply();
+        MailSettingsService::apply();
 
         $status = Password::sendResetLink(['email' => $validated['email']]);
 

@@ -2,15 +2,13 @@
 
 namespace App\Domains\Notifications\Jobs;
 
-use App\Domains\Settings\Models\Setting;
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -44,7 +42,7 @@ class SendEmailNotificationJob implements ShouldQueue
             return;
         }
 
-        if (! \App\Domains\Settings\Services\MailSettingsService::apply()) {
+        if (! MailSettingsService::apply()) {
             Log::info("SendEmailNotificationJob: SMTP not configured — skipping email to user {$this->userId}");
 
             return;

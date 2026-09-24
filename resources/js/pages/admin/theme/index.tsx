@@ -660,7 +660,12 @@ export default function ThemeIndex({ current, history }: ThemeIndexProps) {
                                 >
                                     <div className="flex items-center gap-1.5">
                                         <span className="text-xs">📍</span>
-                                        <span style={{ color: activePalette.text }} className="font-medium">
+                                        <span
+                                            style={{
+                                                color: activePalette.text,
+                                            }}
+                                            className="font-medium"
+                                        >
                                             Select District / Field
                                         </span>
                                     </div>
@@ -668,7 +673,9 @@ export default function ThemeIndex({ current, history }: ThemeIndexProps) {
                                         className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
                                         style={{
                                             color: activePalette.text_muted,
-                                            backgroundColor: (activePalette.primary || '#006026') + '10',
+                                            backgroundColor:
+                                                (activePalette.primary ||
+                                                    '#006026') + '10',
                                         }}
                                     >
                                         Secondary BG & Border

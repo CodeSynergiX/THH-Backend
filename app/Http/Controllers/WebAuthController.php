@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Domains\Users\RoleHome;
 use App\Domains\Users\Services\OtpService;
 use App\Models\User;
@@ -34,7 +35,7 @@ class WebAuthController extends Controller
     public function sendResetLink(Request $request): RedirectResponse
     {
         $validated = $request->validate(['email' => ['required', 'email']]);
-        \App\Domains\Settings\Services\MailSettingsService::apply();
+        MailSettingsService::apply();
         Password::sendResetLink(['email' => $validated['email']]);
 
         return back()->with('status', 'If that email exists, a reset link was sent.');

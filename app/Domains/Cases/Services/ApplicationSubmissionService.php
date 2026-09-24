@@ -5,10 +5,12 @@ namespace App\Domains\Cases\Services;
 use App\Domains\Cases\Models\Application;
 use App\Domains\Cases\Urgency;
 use App\Domains\Content\Models\Category;
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Mail\AccountCreatedMail;
 use App\Mail\ApplicationReceivedMail;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -140,13 +142,13 @@ class ApplicationSubmissionService
         $status = ['email' => 'skipped', 'push' => 'skipped'];
 
         if ($user->email) {
-            \App\Domains\Settings\Services\MailSettingsService::apply();
+            MailSettingsService::apply();
 
             try {
                 Mail::to($user->email)->send(new ApplicationReceivedMail($application));
                 $status['email'] = 'sent';
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Failed to send ApplicationReceivedMail: '.$e->getMessage());
+                Log::warning('Failed to send ApplicationReceivedMail: '.$e->getMessage());
                 $status['email'] = 'failed';
             }
 
@@ -154,7 +156,7 @@ class ApplicationSubmissionService
                 try {
                     Mail::to($user->email)->send(new AccountCreatedMail($user, $plainPassword));
                 } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning('Failed to send AccountCreatedMail: '.$e->getMessage());
+                    Log::warning('Failed to send AccountCreatedMail: '.$e->getMessage());
                     $status['email'] = 'failed';
                 }
             }

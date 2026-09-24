@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
+use App\Domains\Settings\Services\MailSettingsService;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -27,10 +30,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
-        \App\Domains\Settings\Services\MailSettingsService::apply();
+        MailSettingsService::apply();
 
-        \Illuminate\Support\Facades\Queue::before(function (\Illuminate\Queue\Events\JobProcessing $event) {
-            \App\Domains\Settings\Services\MailSettingsService::apply();
+        Queue::before(function (JobProcessing $event) {
+            MailSettingsService::apply();
         });
 
         Gate::before(function (User $user, string $ability): ?bool {
