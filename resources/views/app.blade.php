@@ -67,10 +67,13 @@
                 --color-secondary: {{ $light['secondary'] }};
                 --color-accent: {{ $light['accent'] }};
                 --color-bg: {{ $light['bg'] }};
+                --color-bg-secondary: {{ $light['bg_secondary'] ?? $light['secondary_bg'] ?? '#f5ebe4' }};
                 --color-surface: {{ $light['surface'] }};
+                --color-surface-secondary: {{ $light['surface_secondary'] ?? $light['secondary_surface'] ?? '#ffffff' }};
                 --color-text: {{ $light['text'] }};
                 --color-text-muted: {{ $light['text_muted'] }};
                 --color-border: {{ $light['border'] }};
+                --color-border-secondary: {{ $light['border_secondary'] ?? $light['secondary_border'] ?? '#dfc7b8' }};
                 --color-status-received: {{ $light['status_received'] }};
                 --color-status-verification: {{ $light['status_verification'] }};
                 --color-status-categorised: {{ $light['status_categorised'] }};
@@ -87,10 +90,13 @@
                 --color-secondary: {{ $dark['secondary'] }};
                 --color-accent: {{ $dark['accent'] }};
                 --color-bg: {{ $dark['bg'] }};
+                --color-bg-secondary: {{ $dark['bg_secondary'] ?? $dark['secondary_bg'] ?? '#2d1e13' }};
                 --color-surface: {{ $dark['surface'] }};
+                --color-surface-secondary: {{ $dark['surface_secondary'] ?? $dark['secondary_surface'] ?? '#342217' }};
                 --color-text: {{ $dark['text'] }};
                 --color-text-muted: {{ $dark['text_muted'] }};
                 --color-border: {{ $dark['border'] }};
+                --color-border-secondary: {{ $dark['border_secondary'] ?? $dark['secondary_border'] ?? '#4d3424' }};
                 --color-status-received: {{ $dark['status_received'] }};
                 --color-status-verification: {{ $dark['status_verification'] }};
                 --color-status-categorised: {{ $dark['status_categorised'] }};

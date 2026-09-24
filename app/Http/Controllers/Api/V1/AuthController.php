@@ -386,6 +386,8 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
         ]);
 
+        \App\Domains\Settings\Services\MailSettingsService::apply();
+
         $status = Password::sendResetLink(['email' => $validated['email']]);
 
         return response()->json([

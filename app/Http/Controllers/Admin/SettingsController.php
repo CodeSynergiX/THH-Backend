@@ -122,7 +122,7 @@ class SettingsController extends Controller
             Setting::set('smtp_password_encrypted', encrypt($validated['smtp_password']), 'smtp');
         }
 
-        Cache::forget('thh:smtp_settings');
+        \App\Domains\Settings\Services\MailSettingsService::clearCacheAndReapply();
 
         return back()->with('success', 'SMTP settings saved. Use the Test Email button to verify.');
     }
@@ -136,37 +136,11 @@ class SettingsController extends Controller
             'test_recipient' => ['required', 'email'],
         ]);
 
-        $smtp = Cache::remember('thh:smtp_settings_test', 5, function () {
-            $keys = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password_encrypted', 'smtp_from_name', 'smtp_from_email'];
-
-            return Setting::whereIn('key', $keys)->get()
-                ->mapWithKeys(fn ($s) => [$s->key => $s->value['val'] ?? $s->value])
-                ->toArray();
-        });
-
-        if (empty($smtp['smtp_host'])) {
+        if (! \App\Domains\Settings\Services\MailSettingsService::apply()) {
             return back()->with('error', 'SMTP is not configured. Please save SMTP settings first.');
         }
 
         try {
-            Config::set('mail.default', 'smtp');
-            Config::set('mail.mailers.smtp.host', $smtp['smtp_host']);
-            Config::set('mail.mailers.smtp.port', (int) ($smtp['smtp_port'] ?? 587));
-            Config::set('mail.mailers.smtp.username', $smtp['smtp_username'] ?? '');
-            $rawPw = $smtp['smtp_password_encrypted'] ?? '';
-            $password = '';
-            if (! empty($rawPw)) {
-                try {
-                    $password = decrypt($rawPw);
-                } catch (\Throwable) {
-                    $password = $rawPw;
-                }
-            }
-            Config::set('mail.mailers.smtp.password', $password);
-            Config::set('mail.mailers.smtp.encryption', 'tls');
-            Config::set('mail.from.name', $smtp['smtp_from_name'] ?? 'THH');
-            Config::set('mail.from.address', $smtp['smtp_from_email'] ?? 'noreply@ggvt.org');
-
             Mail::html(
                 '<h2 style="color:#B45309">🤝 Tribal Helping Hand — Test Email</h2><p>Your SMTP configuration is working correctly! Sent from the THH Admin Panel.</p>',
                 fn ($msg) => $msg->to($validated['test_recipient'])->subject('THH — SMTP Test Email')

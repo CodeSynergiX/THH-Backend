@@ -44,43 +44,11 @@ class SendEmailNotificationJob implements ShouldQueue
             return;
         }
 
-        // Load SMTP settings from the settings table (cached for 60 s)
-        $smtp = Cache::remember('thh:smtp_settings', 60, function () {
-            $keys = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password_encrypted', 'smtp_from_name', 'smtp_from_email'];
-            $rows = Setting::whereIn('key', $keys)->get()
-                ->mapWithKeys(fn ($s) => [$s->key => $s->value['val'] ?? $s->value])
-                ->toArray();
-
-            return $rows;
-        });
-
-        $host = $smtp['smtp_host'] ?? '';
-
-        // Skip sending if SMTP is not configured — log as stubbed
-        if (empty($host)) {
+        if (! \App\Domains\Settings\Services\MailSettingsService::apply()) {
             Log::info("SendEmailNotificationJob: SMTP not configured — skipping email to user {$this->userId}");
 
             return;
         }
-
-        // Override mail config at runtime with DB-stored credentials
-        Config::set('mail.default', 'smtp');
-        Config::set('mail.mailers.smtp.host', $host);
-        Config::set('mail.mailers.smtp.port', (int) ($smtp['smtp_port'] ?? 587));
-        Config::set('mail.mailers.smtp.username', $smtp['smtp_username'] ?? '');
-        $rawPassword = $smtp['smtp_password_encrypted'] ?? '';
-        $password = '';
-        if (! empty($rawPassword)) {
-            try {
-                $password = decrypt($rawPassword);
-            } catch (\Throwable) {
-                $password = $rawPassword;
-            }
-        }
-        Config::set('mail.mailers.smtp.password', $password);
-        Config::set('mail.mailers.smtp.encryption', 'tls');
-        Config::set('mail.from.name', $smtp['smtp_from_name'] ?? 'Tribal Helping Hand (GGVT)');
-        Config::set('mail.from.address', $smtp['smtp_from_email'] ?? 'noreply@ggvt.org');
 
         $title = $this->title;
         $body = $this->body;

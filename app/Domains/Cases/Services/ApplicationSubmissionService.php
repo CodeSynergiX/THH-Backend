@@ -140,17 +140,21 @@ class ApplicationSubmissionService
         $status = ['email' => 'skipped', 'push' => 'skipped'];
 
         if ($user->email) {
+            \App\Domains\Settings\Services\MailSettingsService::apply();
+
             try {
                 Mail::to($user->email)->send(new ApplicationReceivedMail($application));
                 $status['email'] = 'sent';
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send ApplicationReceivedMail: '.$e->getMessage());
                 $status['email'] = 'failed';
             }
 
             if ($accountCreated && $plainPassword) {
                 try {
                     Mail::to($user->email)->send(new AccountCreatedMail($user, $plainPassword));
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send AccountCreatedMail: '.$e->getMessage());
                     $status['email'] = 'failed';
                 }
             }

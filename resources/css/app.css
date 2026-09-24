@@ -12,12 +12,16 @@
 
     --color-thh-primary: var(--color-primary);
     --color-thh-secondary: var(--color-secondary);
+    --color-accent: var(--color-accent);
     --color-thh-accent: var(--color-accent);
     --color-thh-bg: var(--color-bg);
+    --color-thh-bg-secondary: var(--color-bg-secondary);
     --color-thh-surface: var(--color-surface);
+    --color-thh-surface-secondary: var(--color-surface-secondary);
     --color-thh-text: var(--color-text);
     --color-thh-text-muted: var(--color-text-muted);
     --color-thh-border: var(--color-border);
+    --color-thh-border-secondary: var(--color-border-secondary);
     --color-thh-status-received: var(--color-status-received);
     --color-thh-status-verification: var(--color-status-verification);
     --color-thh-status-categorised: var(--color-status-categorised);

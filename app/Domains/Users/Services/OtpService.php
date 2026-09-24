@@ -56,6 +56,7 @@ class OtpService
 
         if ($email) {
             try {
+                \App\Domains\Settings\Services\MailSettingsService::apply();
                 Mail::to($email)->send(new OtpCodeMail($code, $purpose));
             } catch (\Throwable $e) {
                 Log::warning('Failed to send OTP email: '.$e->getMessage());

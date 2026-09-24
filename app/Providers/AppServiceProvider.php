@@ -27,6 +27,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
+        \App\Domains\Settings\Services\MailSettingsService::apply();
+
+        \Illuminate\Support\Facades\Queue::before(function (\Illuminate\Queue\Events\JobProcessing $event) {
+            \App\Domains\Settings\Services\MailSettingsService::apply();
+        });
+
         Gate::before(function (User $user, string $ability): ?bool {
             if ($user->hasRole('super_admin')) {
                 return true;

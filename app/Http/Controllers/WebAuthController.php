@@ -34,6 +34,7 @@ class WebAuthController extends Controller
     public function sendResetLink(Request $request): RedirectResponse
     {
         $validated = $request->validate(['email' => ['required', 'email']]);
+        \App\Domains\Settings\Services\MailSettingsService::apply();
         Password::sendResetLink(['email' => $validated['email']]);
 
         return back()->with('status', 'If that email exists, a reset link was sent.');

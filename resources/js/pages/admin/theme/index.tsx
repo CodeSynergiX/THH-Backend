@@ -37,10 +37,13 @@ const defaultLight: Record<string, string> = {
     secondary: '#79573c',
     accent: '#1b7a38',
     bg: '#fff8f5',
+    bg_secondary: '#f5ebe4',
     surface: '#fff8f5',
+    surface_secondary: '#ffffff',
     text: '#2a170b',
     text_muted: '#3f493f',
     border: '#bfcabb',
+    border_secondary: '#dfc7b8',
     status_received: '#2563EB',
     status_verification: '#7C3AED',
     status_categorised: '#4F46E5',
@@ -57,10 +60,13 @@ const defaultDark: Record<string, string> = {
     secondary: '#eabe9c',
     accent: '#9bf7a6',
     bg: '#1a110c',
+    bg_secondary: '#181818',
     surface: '#25180f',
+    surface_secondary: '#282828',
     text: '#ffede5',
     text_muted: '#bfcabb',
     border: '#412c1f',
+    border_secondary: '#383838',
     status_received: '#60A5FA',
     status_verification: '#A78BFA',
     status_categorised: '#818CF8',
@@ -366,6 +372,14 @@ export default function ThemeIndex({ current, history }: ThemeIndexProps) {
                                             key: 'surface',
                                             label: 'Card / Surface',
                                         },
+                                        {
+                                            key: 'bg_secondary',
+                                            label: 'Secondary Background (Inner Content)',
+                                        },
+                                        {
+                                            key: 'surface_secondary',
+                                            label: 'Secondary Surface (Nested / Input)',
+                                        },
                                         { key: 'text', label: 'Body Text' },
                                         {
                                             key: 'text_muted',
@@ -374,6 +388,10 @@ export default function ThemeIndex({ current, history }: ThemeIndexProps) {
                                         {
                                             key: 'border',
                                             label: 'Border / Divider',
+                                        },
+                                        {
+                                            key: 'border_secondary',
+                                            label: 'Secondary Border (Inner Outline)',
                                         },
                                     ].map(({ key, label }) => (
                                         <div key={key} className="space-y-1.5">
@@ -624,6 +642,37 @@ export default function ThemeIndex({ current, history }: ThemeIndexProps) {
                                         Narmada District • Dediapada Taluka •
                                         Chikda Village
                                     </p>
+                                </div>
+
+                                {/* Inner Content Container Preview */}
+                                <div
+                                    className="flex items-center justify-between rounded-lg border p-2.5 text-xs"
+                                    style={{
+                                        backgroundColor:
+                                            activePalette.bg_secondary ||
+                                            activePalette.surface_secondary ||
+                                            '#f5ebe4',
+                                        borderColor:
+                                            activePalette.border_secondary ||
+                                            activePalette.border ||
+                                            '#dfc7b8',
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs">📍</span>
+                                        <span style={{ color: activePalette.text }} className="font-medium">
+                                            Select District / Field
+                                        </span>
+                                    </div>
+                                    <span
+                                        className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        style={{
+                                            color: activePalette.text_muted,
+                                            backgroundColor: (activePalette.primary || '#006026') + '10',
+                                        }}
+                                    >
+                                        Secondary BG & Border
+                                    </span>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-2">
