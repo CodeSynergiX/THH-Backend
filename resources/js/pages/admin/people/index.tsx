@@ -130,18 +130,18 @@ export default function PeopleIndex({
             district_id: p.district_id
                 ? String(p.district_id)
                 : p.district?.id
-                    ? String(p.district.id)
-                    : '',
+                  ? String(p.district.id)
+                  : '',
             taluka_id: p.taluka_id
                 ? String(p.taluka_id)
                 : p.taluka?.id
-                    ? String(p.taluka.id)
-                    : '',
+                  ? String(p.taluka.id)
+                  : '',
             village_id: p.village_id
                 ? String(p.village_id)
                 : p.village?.id
-                    ? String(p.village.id)
-                    : '',
+                  ? String(p.village.id)
+                  : '',
             gender: p.gender || '',
             date_of_birth: p.date_of_birth || '',
             blood_group: p.blood_group || '',
@@ -238,20 +238,22 @@ export default function PeopleIndex({
                             <button
                                 type="button"
                                 onClick={() => setActiveView('directory')}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeView === 'directory'
-                                    ? 'bg-thh-primary text-white shadow-2xs'
-                                    : 'text-thh-text-muted hover:text-thh-text'
-                                    }`}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                    activeView === 'directory'
+                                        ? 'bg-thh-primary text-white shadow-2xs'
+                                        : 'text-thh-text-muted hover:text-thh-text'
+                                }`}
                             >
                                 Directory
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveView('matrix')}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeView === 'matrix'
-                                    ? 'bg-thh-primary text-white shadow-2xs'
-                                    : 'text-thh-text-muted hover:text-thh-text'
-                                    }`}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                    activeView === 'matrix'
+                                        ? 'bg-thh-primary text-white shadow-2xs'
+                                        : 'text-thh-text-muted hover:text-thh-text'
+                                }`}
                             >
                                 Roles & Permissions
                             </button>
@@ -280,10 +282,11 @@ export default function PeopleIndex({
                                         setSelectedRole(r.key);
                                         handleFilter({ role: r.key });
                                     }}
-                                    className={`rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${selectedRole === r.key
-                                        ? 'bg-thh-surface border-thh-primary text-thh-primary ring-thh-primary shadow-2xs ring-1'
-                                        : 'bg-thh-surface border-thh-border text-thh-text-muted hover:text-thh-text'
-                                        }`}
+                                    className={`rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
+                                        selectedRole === r.key
+                                            ? 'bg-thh-surface border-thh-primary text-thh-primary ring-thh-primary shadow-2xs ring-1'
+                                            : 'bg-thh-surface border-thh-border text-thh-text-muted hover:text-thh-text'
+                                    }`}
                                 >
                                     {r.label}
                                 </button>
@@ -394,7 +397,7 @@ export default function PeopleIndex({
                                                                 </span>
                                                             </div>
                                                         ) : p.taluka
-                                                            ?.name_en ? (
+                                                              ?.name_en ? (
                                                             <div>
                                                                 <span className="block font-semibold">
                                                                     {
@@ -409,7 +412,7 @@ export default function PeopleIndex({
                                                                 </span>
                                                             </div>
                                                         ) : p.district
-                                                            ?.name_en ? (
+                                                              ?.name_en ? (
                                                             <span className="font-semibold">
                                                                 {
                                                                     p.district
@@ -429,10 +432,11 @@ export default function PeopleIndex({
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <span
-                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${p.is_active
-                                                                ? 'bg-emerald-500/10 text-emerald-600'
-                                                                : 'bg-rose-500/10 text-rose-600'
-                                                                }`}
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                                                p.is_active
+                                                                    ? 'bg-emerald-500/10 text-emerald-600'
+                                                                    : 'bg-rose-500/10 text-rose-600'
+                                                            }`}
                                                         >
                                                             {p.is_active
                                                                 ? 'Active'
@@ -441,17 +445,18 @@ export default function PeopleIndex({
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <span
-                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${p.helper_status ===
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                                                p.helper_status ===
                                                                 'approved'
-                                                                ? 'bg-emerald-500/10 text-emerald-700'
-                                                                : p.helper_status ===
-                                                                    'rejected'
-                                                                    ? 'bg-rose-500/10 text-rose-600'
+                                                                    ? 'bg-emerald-500/10 text-emerald-700'
                                                                     : p.helper_status ===
-                                                                        'pending'
+                                                                        'rejected'
+                                                                      ? 'bg-rose-500/10 text-rose-600'
+                                                                      : p.helper_status ===
+                                                                          'pending'
                                                                         ? 'bg-amber-500/10 text-amber-700'
                                                                         : 'text-thh-text-muted'
-                                                                }`}
+                                                            }`}
                                                         >
                                                             {p.helper_status ||
                                                                 '—'}
@@ -493,33 +498,33 @@ export default function PeopleIndex({
                                                             </div>
                                                             {p.helper_status ===
                                                                 'pending' && (
-                                                                    <div className="mt-0.5 flex gap-1.5">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                handleHelperStatus(
-                                                                                    p.id,
-                                                                                    'approved',
-                                                                                )
-                                                                            }
-                                                                            className="text-[11px] font-bold text-emerald-700"
-                                                                        >
-                                                                            Approve
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                handleHelperStatus(
-                                                                                    p.id,
-                                                                                    'rejected',
-                                                                                )
-                                                                            }
-                                                                            className="text-[11px] font-bold text-rose-600"
-                                                                        >
-                                                                            Reject
-                                                                        </button>
-                                                                    </div>
-                                                                )}
+                                                                <div className="mt-0.5 flex gap-1.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleHelperStatus(
+                                                                                p.id,
+                                                                                'approved',
+                                                                            )
+                                                                        }
+                                                                        className="text-[11px] font-bold text-emerald-700"
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleHelperStatus(
+                                                                                p.id,
+                                                                                'rejected',
+                                                                            )
+                                                                        }
+                                                                        className="text-[11px] font-bold text-rose-600"
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -589,8 +594,8 @@ export default function PeopleIndex({
                                                                 locked
                                                                     ? 'Super admin cannot be changed'
                                                                     : has
-                                                                        ? `Revoke ${perm.name}`
-                                                                        : `Grant ${perm.name}`
+                                                                      ? `Revoke ${perm.name}`
+                                                                      : `Grant ${perm.name}`
                                                             }
                                                             onClick={() =>
                                                                 router.post(
@@ -608,12 +613,13 @@ export default function PeopleIndex({
                                                                     },
                                                                 )
                                                             }
-                                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${locked
-                                                                ? 'cursor-not-allowed bg-emerald-500/15 text-emerald-600'
-                                                                : has
-                                                                    ? 'bg-emerald-500/15 text-emerald-600 hover:bg-rose-500/15 hover:text-rose-600'
-                                                                    : 'text-thh-border hover:bg-thh-bg hover:text-thh-text'
-                                                                }`}
+                                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                                                                locked
+                                                                    ? 'cursor-not-allowed bg-emerald-500/15 text-emerald-600'
+                                                                    : has
+                                                                      ? 'bg-emerald-500/15 text-emerald-600 hover:bg-rose-500/15 hover:text-rose-600'
+                                                                      : 'text-thh-border hover:bg-thh-bg hover:text-thh-text'
+                                                            }`}
                                                         >
                                                             {has ? (
                                                                 <Check className="h-3.5 w-3.5" />
